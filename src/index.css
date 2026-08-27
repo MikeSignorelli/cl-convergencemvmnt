@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: #171C10; }
+  ::selection { background: #C2A064; color: #171C10; }
+
+  /* hide scrollbar on sidebar */
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  /* input focus ring */
+  input:focus { outline: none; border-color: rgba(194,160,100,0.55) !important; }
+  input::placeholder { color: rgba(240,238,229,0.35); }
+}
