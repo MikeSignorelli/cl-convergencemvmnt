@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import logo from '../../assets/images/convergence-mvmnt.png'
 
 const STEP_NAMES = ['Your path', 'Your focus', 'Daily rhythm', 'Profile', 'Get the app']
@@ -151,8 +151,12 @@ function RhythmCard({ rhythm, selected, onSelect }) {
 }
 
 export default function Onboarding() {
-  const [step, setStep] = useState(1)
-  const [tier, setTier] = useState('disciple')
+  const [searchParams] = useSearchParams()
+  const tierParam = searchParams.get('tier')
+  const hasValidTierParam = TIERS.some((t) => t.id === tierParam)
+
+  const [step, setStep] = useState(hasValidTierParam ? 2 : 1)
+  const [tier, setTier] = useState(hasValidTierParam ? tierParam : 'disciple')
   const [rhythm, setRhythm] = useState('morning')
   const [picked, setPicked] = useState([
     'Breaking generational patterns',

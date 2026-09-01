@@ -120,9 +120,9 @@ export default function Leaders() {
         <div className="relative mx-auto grid max-w-[1200px] grid-cols-1 items-center gap-16 px-8 py-[104px] md:grid-cols-[1.32fr_1fr] md:pb-[116px]">
           <div>
             <div className="mb-8 inline-flex gap-1.5 rounded-full border border-cream/12 bg-white/[0.04] p-[5px]">
-              <Link to="/" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Disciples</Link>
-              <span className="rounded-full bg-gold px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-ink">For Leaders</span>
-              <Link to="/pastors" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Pastors</Link>
+              <Link to="/onboarding?tier=disciple" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Disciples</Link>
+              <Link to="/onboarding?tier=leader" className="rounded-full bg-gold px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-ink no-underline">For Leaders</Link>
+              <Link to="/onboarding?tier=pastor" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Pastors</Link>
             </div>
             <h1 className="mb-[26px] font-sans text-[42px] font-bold uppercase leading-[0.98] tracking-[0.005em] text-cream-solid sm:text-[60px]">
               You built the life. <span className="text-gold">But something&rsquo;s still missing.</span>

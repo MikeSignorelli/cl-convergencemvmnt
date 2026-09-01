@@ -116,9 +116,9 @@ export default function Pastors() {
         <div className="relative mx-auto grid max-w-[1200px] grid-cols-1 items-center gap-16 px-8 py-[104px] md:grid-cols-[1.32fr_1fr] md:pb-[116px]">
           <div>
             <div className="mb-8 inline-flex gap-1.5 rounded-full border border-cream/12 bg-white/[0.04] p-[5px]">
-              <Link to="/" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Disciples</Link>
-              <Link to="/leaders" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Leaders</Link>
-              <span className="rounded-full bg-gold px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-ink">For Pastors</span>
+              <Link to="/onboarding?tier=disciple" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Disciples</Link>
+              <Link to="/onboarding?tier=leader" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Leaders</Link>
+              <Link to="/onboarding?tier=pastor" className="rounded-full bg-gold px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-ink no-underline">For Pastors</Link>
             </div>
             <h1 className="mb-[26px] font-sans text-[42px] font-bold uppercase leading-[0.98] tracking-[0.005em] text-cream-solid sm:text-[56px]">
               Your church isn&rsquo;t stuck because of your preaching. <span className="text-gold">It&rsquo;s stuck because of your structure.</span>
