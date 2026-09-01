@@ -1,25 +1,36 @@
 import { Routes, Route } from 'react-router-dom'
-import { TierProvider } from './context/TierContext'
-import Home       from './pages/Home'
-import Leaders    from './pages/Leaders'
-import Pastors    from './pages/Pastors'
-import Events     from './pages/Events'
-import Dashboard  from './pages/Dashboard'
-import Onboarding from './pages/Onboarding'
+import ScrollToHash from './components/ScrollToHash'
+import Home    from './pages/Home'
+import Leaders from './pages/Leaders'
+import Pastors from './pages/Pastors'
+import Events  from './pages/Events'
+
+import Dashboard     from './pages/member/Dashboard'
+import Onboarding    from './pages/member/Onboarding'
+import CourseLibrary from './pages/member/CourseLibrary'
+import CourseDetail  from './pages/member/CourseDetail'
+import Player        from './pages/member/Player'
+import Progress      from './pages/member/Progress'
 
 export default function App() {
   return (
-    <TierProvider>
+    <>
+      <ScrollToHash />
       <Routes>
-        <Route path="/"            element={<Home />} />
-        <Route path="/leaders"     element={<Leaders />} />
-        <Route path="/pastors"     element={<Pastors />} />
-        <Route path="/events"      element={<Events />} />
-        <Route path="/dashboard"   element={<Dashboard />} />
-        <Route path="/onboarding"  element={<Onboarding />} />
-        {/* fallback */}
-        <Route path="*"            element={<Home />} />
+        <Route path="/"        element={<Home />} />
+        <Route path="/leaders" element={<Leaders />} />
+        <Route path="/pastors" element={<Pastors />} />
+        <Route path="/events"  element={<Events />} />
+
+        <Route path="/onboarding"     element={<Onboarding />} />
+        <Route path="/dashboard"      element={<Dashboard />} />
+        <Route path="/courses"        element={<CourseLibrary />} />
+        <Route path="/courses/detail" element={<CourseDetail />} />
+        <Route path="/player"         element={<Player />} />
+        <Route path="/progress"       element={<Progress />} />
+
+        <Route path="*" element={<Home />} />
       </Routes>
-    </TierProvider>
+    </>
   )
 }

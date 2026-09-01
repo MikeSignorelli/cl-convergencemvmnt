@@ -1,112 +1,114 @@
 import { useState } from 'react'
-import { Link, NavLink } from 'react-router-dom'
-import Logo from './Logo'
+import { Link } from 'react-router-dom'
+import logo from '../assets/images/convergence-mvmnt.png'
 
-const NAV_LINKS = [
-  { label: 'For Disciples', to: '/' },
-  { label: 'For Leaders',   to: '/leaders' },
-  { label: 'For Pastors',   to: '/pastors' },
-  { label: 'Events',        to: '/events' },
-]
+const NAV_LINKS = {
+  '/': [
+    { label: 'For Disciples', href: '#featured', active: true },
+    { label: 'For Leaders', to: '/leaders' },
+    { label: 'For Pastors', to: '/pastors' },
+    { label: 'About', href: '#meet-mike' },
+    { label: 'Events', to: '/events' },
+  ],
+  '/leaders': [
+    { label: 'For Disciples', to: '/' },
+    { label: 'For Leaders', href: '#top', active: true },
+    { label: 'For Pastors', to: '/pastors' },
+    { label: 'About', to: '/#meet-mike' },
+    { label: 'Events', href: '#tour' },
+  ],
+  '/pastors': [
+    { label: 'For Disciples', to: '/' },
+    { label: 'For Leaders', to: '/leaders' },
+    { label: 'For Pastors', href: '#top', active: true },
+    { label: 'About', to: '/#meet-mike' },
+    { label: 'Events', to: '/events' },
+  ],
+  '/events': [
+    { label: 'For Disciples', to: '/' },
+    { label: 'For Leaders', to: '/leaders' },
+    { label: 'For Pastors', to: '/pastors' },
+    { label: 'About', to: '/#meet-mike' },
+    { label: 'Events', href: '#top', active: true },
+  ],
+}
 
-export default function PublicNav() {
-  const [open, setOpen] = useState(false)
+const CTA = {
+  '/': { label: 'Join the Movement', to: '/onboarding' },
+  '/leaders': { label: 'Join the Movement', to: '/onboarding' },
+  '/pastors': { label: 'Free Guide', href: '#guide' },
+  '/events': { label: 'Stay Updated', href: '#stay' },
+}
+
+function NavItem({ link }) {
+  const className = `text-[13px] font-medium uppercase tracking-[0.12em] no-underline transition-colors ${
+    link.active ? 'text-cream-solid font-semibold' : 'text-cream/72 hover:text-cream-solid'
+  }`
+  if (link.to) {
+    return (
+      <Link to={link.to} className={className}>
+        {link.label}
+      </Link>
+    )
+  }
+  return (
+    <a href={link.href} className={className}>
+      {link.label}
+    </a>
+  )
+}
+
+export default function PublicNav({ page = '/' }) {
+  const [dismissed, setDismissed] = useState(false)
+  const links = NAV_LINKS[page] ?? NAV_LINKS['/']
+  const cta = CTA[page] ?? CTA['/']
 
   return (
-    <header className="sticky top-0 z-50 bg-cv-sidebar/90 backdrop-blur-md border-b border-white/[0.07]">
-      <div className="max-w-6xl mx-auto px-6 h-[70px] flex items-center justify-between gap-6">
-        <Link to="/" aria-label="Convergence MVMNT Home">
-          <Logo height={38} />
-        </Link>
-
-        {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-1" aria-label="Main navigation">
-          {NAV_LINKS.map(({ label, to }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              className={({ isActive }) =>
-                `px-4 py-2 rounded-[9px] font-sans font-semibold text-xs tracking-widest uppercase transition-colors ${
-                  isActive
-                    ? 'bg-cv-gold/15 text-cv-gold-lt'
-                    : 'text-cv-text/60 hover:text-cv-text hover:bg-white/5'
-                }`
-              }
-            >
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* CTA */}
-        <div className="hidden md:flex items-center gap-3">
-          <Link
-            to="/onboarding"
-            className="px-5 py-2.5 rounded-full bg-cv-gold text-cv-bg font-sans font-semibold text-xs tracking-widest uppercase hover:brightness-110 transition-all"
+    <>
+      {!dismissed && (
+        <div className="relative flex min-h-[44px] items-center justify-center bg-ink-deep px-6 py-2.5 text-center text-cream/82 pr-12">
+          <span className="font-sans text-[12.5px] font-medium uppercase tracking-[0.08em]">
+            Unoffendable Heart — Mike&rsquo;s new book is available for pre-order&nbsp;
+            <span className="text-gold">Reserve your copy →</span>
+          </span>
+          <button
+            aria-label="Dismiss announcement"
+            onClick={() => setDismissed(true)}
+            className="absolute right-4 top-1/2 flex -translate-y-1/2 cursor-pointer border-none bg-transparent p-1 text-cream/60"
           >
-            Join the movement
-          </Link>
-          <Link
-            to="/dashboard"
-            className="px-5 py-2.5 rounded-full border border-white/20 text-cv-text/70 font-sans font-semibold text-xs tracking-widest uppercase hover:text-cv-text hover:border-white/40 transition-all"
-          >
-            Sign in
-          </Link>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-
-        {/* Mobile hamburger */}
-        <button
-          className="md:hidden text-cv-text/60 p-2"
-          onClick={() => setOpen(!open)}
-          aria-label="Toggle menu"
-          aria-expanded={open}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            {open ? (
-              <>
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </>
-            ) : (
-              <>
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </>
-            )}
-          </svg>
-        </button>
-      </div>
-
-      {/* Mobile menu */}
-      {open && (
-        <nav className="md:hidden border-t border-white/[0.07] bg-cv-sidebar px-6 py-4 flex flex-col gap-2" aria-label="Mobile navigation">
-          {NAV_LINKS.map(({ label, to }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `px-4 py-3 rounded-[9px] font-sans font-semibold text-xs tracking-widest uppercase ${
-                  isActive ? 'bg-cv-gold/15 text-cv-gold-lt' : 'text-cv-text/60'
-                }`
-              }
-            >
-              {label}
-            </NavLink>
-          ))}
-          <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-white/[0.07]">
-            <Link to="/onboarding" onClick={() => setOpen(false)} className="px-4 py-3 rounded-full bg-cv-gold text-cv-bg font-sans font-semibold text-xs tracking-widest uppercase text-center">
-              Join the movement
-            </Link>
-            <Link to="/dashboard" onClick={() => setOpen(false)} className="px-4 py-3 rounded-full border border-white/20 text-cv-text/70 font-sans font-semibold text-xs tracking-widest uppercase text-center">
-              Sign in
-            </Link>
-          </div>
-        </nav>
       )}
-    </header>
+      <nav className="sticky top-0 z-50 h-[74px] border-b border-gold/[0.14] bg-ink/86 backdrop-blur-md">
+        <div className="mx-auto flex h-full max-w-[1200px] items-center justify-between gap-6 px-8">
+          <Link to="/" className="flex items-center gap-2.5 no-underline">
+            <img src={logo} alt="Convergence MVMNT" className="block h-[55px] w-auto" />
+          </Link>
+          <div className="hidden items-center gap-[30px] md:flex">
+            {links.map((link) => (
+              <NavItem key={link.label} link={link} />
+            ))}
+          </div>
+          {cta.to ? (
+            <Link
+              to={cta.to}
+              className="rounded-full bg-gold px-5 py-2.5 font-sans text-xs font-semibold uppercase tracking-[0.14em] text-ink no-underline"
+            >
+              {cta.label}
+            </Link>
+          ) : (
+            <a
+              href={cta.href}
+              className="rounded-full bg-gold px-5 py-2.5 font-sans text-xs font-semibold uppercase tracking-[0.14em] text-ink no-underline"
+            >
+              {cta.label}
+            </a>
+          )}
+        </div>
+      </nav>
+    </>
   )
 }
