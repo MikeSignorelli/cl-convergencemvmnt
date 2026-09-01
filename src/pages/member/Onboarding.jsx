@@ -5,33 +5,11 @@ import CreateLoginStep from './CreateLoginStep'
 import ProfileStep from './ProfileStep'
 
 const STEP_NAMES = [
-  'Your path',
   'Your focus',
   'Daily rhythm',
   'Create your login',
   'Profile',
   'Get the app',
-]
-
-const TIERS = [
-  {
-    id: 'disciple',
-    name: 'Disciple',
-    accent: '#C2A064',
-    description: 'Freedom, healing, and breaking generational patterns.',
-  },
-  {
-    id: 'leader',
-    name: 'Leader',
-    accent: '#8FA9BD',
-    description: 'Purpose, legacy, and significance beyond success.',
-  },
-  {
-    id: 'pastor',
-    name: 'Pastor',
-    accent: '#B4737B',
-    description: 'Church systems, marriage, and sustainable ministry.',
-  },
 ]
 
 const FOCUS_OPTIONS = [
@@ -48,29 +26,6 @@ const RHYTHMS = [
   { id: 'midday', label: 'Midday · 12–2 PM', note: 'A reset between meetings' },
   { id: 'evening', label: 'Evening · 8–10 PM', note: 'Reflect before rest' },
 ]
-
-function TierCard({ tier, selected, onSelect }) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className="cursor-pointer rounded-[14px] px-[22px] py-[18px] text-left font-sans"
-      style={{
-        border: `1px solid ${selected ? tier.accent : 'rgba(240,238,229,0.12)'}`,
-        background: selected ? 'rgba(194,160,100,0.07)' : 'rgba(240,238,229,0.03)',
-        boxShadow: selected ? `0 0 0 1px ${tier.accent}` : 'none',
-      }}
-    >
-      <span
-        className="mb-[3px] block text-base font-bold uppercase tracking-[0.06em]"
-        style={{ color: tier.accent }}
-      >
-        {tier.name}
-      </span>
-      <span className="block font-serif text-sm text-cream/65">{tier.description}</span>
-    </button>
-  )
-}
 
 function FocusChip({ label, selected, onToggle }) {
   return (
@@ -110,7 +65,7 @@ function RhythmCard({ rhythm, selected, onSelect }) {
 }
 
 export default function Onboarding() {
-  const { step, tier, setTier, rhythm, setRhythm, picked, togglePicked, next, back } =
+  const { step, tier, rhythm, setRhythm, picked, togglePicked, next, back } =
     useOnboardingSession()
 
   return (
@@ -150,22 +105,6 @@ export default function Onboarding() {
         {step === 1 && (
           <div>
             <h1 className="mb-3 text-[34px] font-bold uppercase leading-[1.02] text-white">
-              Welcome to the movement
-            </h1>
-            <p className="mb-[30px] font-serif text-[16.5px] leading-[1.6] text-cream/72">
-              Let&rsquo;s set up your experience. First — confirm your membership path.
-            </p>
-            <div className="flex flex-col gap-3">
-              {TIERS.map((t) => (
-                <TierCard key={t.id} tier={t} selected={tier === t.id} onSelect={() => setTier(t.id)} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div>
-            <h1 className="mb-3 text-[34px] font-bold uppercase leading-[1.02] text-white">
               What brings you here?
             </h1>
             <p className="mb-[30px] font-serif text-[16.5px] leading-[1.6] text-cream/72">
@@ -184,7 +123,7 @@ export default function Onboarding() {
           </div>
         )}
 
-        {step === 3 && (
+        {step === 2 && (
           <div>
             <h1 className="mb-3 text-[34px] font-bold uppercase leading-[1.02] text-white">
               Set your daily rhythm
@@ -205,11 +144,11 @@ export default function Onboarding() {
           </div>
         )}
 
-        {step === 4 && <CreateLoginStep tier={tier} rhythm={rhythm} picked={picked} onBack={back} />}
+        {step === LOGIN_STEP && <CreateLoginStep tier={tier} rhythm={rhythm} picked={picked} onBack={back} />}
 
         {step === PROFILE_STEP && <ProfileStep onBack={back} onNext={next} />}
 
-        {step === 6 && (
+        {step === TOTAL_STEPS && (
           <div className="text-center">
             <div className="mx-auto mb-[22px] flex h-[74px] w-[74px] items-center justify-center rounded-[20px] border border-gold/35 bg-gold/[0.13]">
               <svg

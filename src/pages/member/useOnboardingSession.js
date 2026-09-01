@@ -8,13 +8,13 @@ import { supabase } from '../../lib/supabaseClient'
 
 const STORAGE_KEY = 'cv-onboarding-session'
 export const VALID_TIERS = ['disciple', 'leader', 'pastor']
-export const TOTAL_STEPS = 6
-// "Create your login" (4) and everything after it requires having actually been
-// through that step — reaching "Set up your profile" (5) or later without a
+export const TOTAL_STEPS = 5
+// "Create your login" (3) and everything after it requires having actually been
+// through that step — reaching "Set up your profile" (4) or later without a
 // real Supabase session means someone jumped ahead (stale storage, manual nav,
-// etc.), so we clamp back to 4 rather than showing a step that assumes auth.
-export const LOGIN_STEP = 4
-export const PROFILE_STEP = 5
+// etc.), so we clamp back to 3 rather than showing a step that assumes auth.
+export const LOGIN_STEP = 3
+export const PROFILE_STEP = 4
 
 const DEFAULTS = {
   step: 1,
@@ -52,9 +52,11 @@ export function seedOnboardingSession({ step, tier, rhythm, picked }) {
 
 // A valid ?tier= param always means "fresh arrival from a landing page": it wins over
 // any persisted mid-flow progress, since clicking a landing-page CTA is a new, explicit choice.
+// There's no dedicated "confirm your path" step anymore — the tier is set from this param
+// (or DEFAULTS.tier when absent) and carried through silently to signup.
 function resolveInitialState(tierParam) {
   if (tierParam && VALID_TIERS.includes(tierParam)) {
-    return { step: 2, tier: tierParam, rhythm: DEFAULTS.rhythm, picked: DEFAULTS.picked }
+    return { step: 1, tier: tierParam, rhythm: DEFAULTS.rhythm, picked: DEFAULTS.picked }
   }
   return readPersisted() ?? { ...DEFAULTS }
 }

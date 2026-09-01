@@ -91,7 +91,7 @@ export async function completeSignup({ password }) {
 
   const { error: profileError } = await supabase
     .from('profiles')
-    .insert({ id: user.id, username: pending.username })
+    .insert({ id: user.id, username: pending.username, tier: pending.answers?.tier ?? null })
   // 23505 (unique violation) here means either this profile already exists
   // (e.g. the password screen was submitted twice) or — rarely — someone else
   // claimed the same username in the meantime. Either way we don't want to
