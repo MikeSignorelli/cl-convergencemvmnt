@@ -4,38 +4,38 @@ import logo from '../assets/images/convergence-mvmnt.png'
 
 const NAV_LINKS = {
   '/': [
-    { label: 'For Disciples', to: '/onboarding?tier=disciple', active: true },
-    { label: 'For Leaders', to: '/onboarding?tier=leader' },
-    { label: 'For Pastors', to: '/onboarding?tier=pastor' },
+    { label: 'For Disciples', href: '#featured', active: true },
+    { label: 'For Leaders', to: '/leaders' },
+    { label: 'For Pastors', to: '/pastors' },
     { label: 'About', href: '#meet-mike' },
     { label: 'Events', to: '/events' },
   ],
   '/leaders': [
-    { label: 'For Disciples', to: '/onboarding?tier=disciple' },
-    { label: 'For Leaders', to: '/onboarding?tier=leader', active: true },
-    { label: 'For Pastors', to: '/onboarding?tier=pastor' },
+    { label: 'For Disciples', to: '/' },
+    { label: 'For Leaders', href: '#top', active: true },
+    { label: 'For Pastors', to: '/pastors' },
     { label: 'About', to: '/#meet-mike' },
     { label: 'Events', href: '#tour' },
   ],
   '/pastors': [
-    { label: 'For Disciples', to: '/onboarding?tier=disciple' },
-    { label: 'For Leaders', to: '/onboarding?tier=leader' },
-    { label: 'For Pastors', to: '/onboarding?tier=pastor', active: true },
+    { label: 'For Disciples', to: '/' },
+    { label: 'For Leaders', to: '/leaders' },
+    { label: 'For Pastors', href: '#top', active: true },
     { label: 'About', to: '/#meet-mike' },
     { label: 'Events', to: '/events' },
   ],
   '/events': [
-    { label: 'For Disciples', to: '/onboarding?tier=disciple' },
-    { label: 'For Leaders', to: '/onboarding?tier=leader' },
-    { label: 'For Pastors', to: '/onboarding?tier=pastor' },
+    { label: 'For Disciples', to: '/' },
+    { label: 'For Leaders', to: '/leaders' },
+    { label: 'For Pastors', to: '/pastors' },
     { label: 'About', to: '/#meet-mike' },
     { label: 'Events', href: '#top', active: true },
   ],
 }
 
 const CTA = {
-  '/': { label: 'Join the Movement', to: '/onboarding' },
-  '/leaders': { label: 'Join the Movement', to: '/onboarding' },
+  '/': { label: 'Join the Movement', to: '/onboarding?tier=disciple' },
+  '/leaders': { label: 'Join the Movement', to: '/onboarding?tier=leader' },
   '/pastors': { label: 'Free Guide', href: '#guide' },
   '/events': { label: 'Stay Updated', href: '#stay' },
 }

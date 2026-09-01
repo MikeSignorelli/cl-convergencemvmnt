@@ -1,0 +1,247 @@
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { supabase } from '../../lib/supabaseClient'
+import { completeSignup, hasProfile } from '../../lib/onboardingSignup'
+import { seedOnboardingSession, PROFILE_STEP } from './useOnboardingSession'
+import { isCommonPassword } from '../../lib/commonPasswords'
+import logo from '../../assets/images/convergence-mvmnt.png'
+
+const MIN_PASSWORD_LENGTH = 12
+
+function getUrlError() {
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  const search = new URLSearchParams(window.location.search)
+  return hash.get('error') || search.get('error')
+}
+
+function hasAuthParams() {
+  return window.location.hash.includes('access_token') || window.location.search.includes('code=')
+}
+
+function Shell({ children }) {
+  return (
+    <div className="min-h-screen bg-ink font-sans text-cream">
+      <header className="flex h-[70px] items-center border-b border-cream/[0.07] px-8">
+        <Link to="/" className="block">
+          <img src={logo} alt="Convergence MVMNT" className="block h-11 w-auto" />
+        </Link>
+      </header>
+      <main className="mx-auto w-full max-w-[440px] px-6 py-16">{children}</main>
+    </div>
+  )
+}
+
+function StatusMessage({ title, body, children }) {
+  return (
+    <div className="text-center">
+      <h1 className="mb-3 text-[28px] font-bold uppercase leading-[1.05] text-white">{title}</h1>
+      <p className="mb-8 font-serif text-base leading-[1.6] text-cream/70">{body}</p>
+      {children}
+    </div>
+  )
+}
+
+export default function SetPassword() {
+  const navigate = useNavigate()
+  // 'checking' | 'ready' | 'already-member' | 'expired' | 'invalid'
+  const [status, setStatus] = useState('checking')
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function resolve() {
+      const urlError = getUrlError()
+      if (urlError) {
+        if (!cancelled) setStatus('expired')
+        return
+      }
+
+      if (!hasAuthParams()) {
+        if (!cancelled) setStatus('invalid')
+        return
+      }
+
+      // The Supabase client exchanges the link for a session automatically on
+      // load; give it a moment via onAuthStateChange rather than assuming
+      // getSession() already has it synchronously.
+      let session = (await supabase.auth.getSession()).data.session
+      if (!session) {
+        session = await new Promise((resolvePromise) => {
+          const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+            if (s) {
+              sub.subscription.unsubscribe()
+              resolvePromise(s)
+            }
+          })
+          setTimeout(() => {
+            sub.subscription.unsubscribe()
+            resolvePromise(null)
+          }, 5000)
+        })
+      }
+
+      if (cancelled) return
+
+      if (!session) {
+        setStatus('expired')
+        return
+      }
+
+      // Someone clicked a sign-in link for an email that's already a full
+      // member (see startSignup's comment on why we can't distinguish this
+      // case earlier without leaking account existence) — just sign them in.
+      const alreadyMember = await hasProfile(session.user.id)
+      if (cancelled) return
+
+      if (alreadyMember) {
+        setStatus('already-member')
+        setTimeout(() => navigate('/dashboard', { replace: true }), 1200)
+        return
+      }
+
+      setStatus('ready')
+    }
+
+    resolve()
+    return () => {
+      cancelled = true
+    }
+  }, [navigate])
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`)
+      return
+    }
+    if (isCommonPassword(password)) {
+      setError('That password is too common — please choose another.')
+      return
+    }
+    if (password !== confirm) {
+      setError('Passwords don’t match.')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const { answers } = await completeSignup({ password })
+      if (answers) {
+        seedOnboardingSession({ step: PROFILE_STEP, ...answers })
+      }
+      navigate('/onboarding', { replace: true })
+    } catch (err) {
+      setError(err.message || 'Something went wrong. Please try again.')
+      setSubmitting(false)
+    }
+  }
+
+  if (status === 'checking') {
+    return (
+      <Shell>
+        <StatusMessage title="One moment" body="Checking your link…" />
+      </Shell>
+    )
+  }
+
+  if (status === 'already-member') {
+    return (
+      <Shell>
+        <StatusMessage
+          title="Welcome back"
+          body="You already have an account — taking you to your dashboard."
+        />
+      </Shell>
+    )
+  }
+
+  if (status === 'expired') {
+    return (
+      <Shell>
+        <StatusMessage
+          title="Link no longer valid"
+          body="This signup link has expired or has already been used. Start over to get a fresh one."
+        >
+          <Link
+            to="/onboarding"
+            className="inline-flex items-center gap-2.5 rounded-full bg-gold px-8 py-3.5 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink no-underline"
+          >
+            Back to onboarding
+          </Link>
+        </StatusMessage>
+      </Shell>
+    )
+  }
+
+  if (status === 'invalid') {
+    return (
+      <Shell>
+        <StatusMessage
+          title="Not a valid signup link"
+          body="This link doesn’t look right. If you meant to finish signing up, start from the onboarding flow again."
+        >
+          <Link
+            to="/onboarding"
+            className="inline-flex items-center gap-2.5 rounded-full bg-gold px-8 py-3.5 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink no-underline"
+          >
+            Back to onboarding
+          </Link>
+        </StatusMessage>
+      </Shell>
+    )
+  }
+
+  return (
+    <Shell>
+      <h1 className="mb-3 text-[28px] font-bold uppercase leading-[1.05] text-white">
+        Set a password
+      </h1>
+      <p className="mb-8 font-serif text-base leading-[1.6] text-cream/70">
+        Last step before your profile — choose a password for your account.
+      </p>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+        <div>
+          <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
+            Password
+          </label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+            className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none"
+          />
+        </div>
+        <div>
+          <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
+            Confirm password
+          </label>
+          <input
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            autoComplete="new-password"
+            className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none"
+          />
+        </div>
+
+        {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border-none bg-gold px-8 py-3.5 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting ? 'Setting password…' : 'Set password & continue'}
+        </button>
+      </form>
+    </Shell>
+  )
+}

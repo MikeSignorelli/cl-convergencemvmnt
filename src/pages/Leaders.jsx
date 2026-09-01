@@ -120,9 +120,9 @@ export default function Leaders() {
         <div className="relative mx-auto grid max-w-[1200px] grid-cols-1 items-center gap-16 px-8 py-[104px] md:grid-cols-[1.32fr_1fr] md:pb-[116px]">
           <div>
             <div className="mb-8 inline-flex gap-1.5 rounded-full border border-cream/12 bg-white/[0.04] p-[5px]">
-              <Link to="/onboarding?tier=disciple" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Disciples</Link>
-              <Link to="/onboarding?tier=leader" className="rounded-full bg-gold px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-ink no-underline">For Leaders</Link>
-              <Link to="/onboarding?tier=pastor" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Pastors</Link>
+              <Link to="/" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Disciples</Link>
+              <span className="rounded-full bg-gold px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-ink">For Leaders</span>
+              <Link to="/pastors" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Pastors</Link>
             </div>
             <h1 className="mb-[26px] font-sans text-[42px] font-bold uppercase leading-[0.98] tracking-[0.005em] text-cream-solid sm:text-[60px]">
               You built the life. <span className="text-gold">But something&rsquo;s still missing.</span>
@@ -134,9 +134,9 @@ export default function Leaders() {
               to close the gap between the self they&rsquo;ve outgrown and the self they&rsquo;re becoming.
             </p>
             <div className="flex flex-wrap items-center gap-[26px]">
-              <a href="#assessment" className="inline-flex items-center gap-2.5 rounded-full bg-gold px-[34px] py-4 font-sans text-sm font-semibold uppercase tracking-[0.12em] text-ink no-underline">
+              <Link to="/onboarding?tier=leader" className="inline-flex items-center gap-2.5 rounded-full bg-gold px-[34px] py-4 font-sans text-sm font-semibold uppercase tracking-[0.12em] text-ink no-underline">
                 Join the movement
-              </a>
+              </Link>
               <a href="#tour" className="font-sans text-[13px] font-medium uppercase tracking-[0.1em] text-cream/72 no-underline">Explore programs →</a>
             </div>
             <p className="mt-[38px] max-w-[520px] border-t border-cream/10 pt-[30px] font-serif text-base italic leading-[1.5] text-cream/55">
@@ -453,9 +453,9 @@ export default function Leaders() {
                 <div className="font-sans text-[34px] font-bold text-cream-solid">
                   $99<span className="text-base font-medium text-cream/60">/mo</span>
                 </div>
-                <a href="#assessment" className="inline-flex items-center gap-2.5 rounded-full bg-gold px-[42px] py-[17px] font-sans text-[15px] font-semibold uppercase tracking-[0.1em] text-ink no-underline">
+                <Link to="/onboarding?tier=leader" className="inline-flex items-center gap-2.5 rounded-full bg-gold px-[42px] py-[17px] font-sans text-[15px] font-semibold uppercase tracking-[0.1em] text-ink no-underline">
                   Join the movement
-                </a>
+                </Link>
                 <span className="font-serif text-sm text-cream/55">Cancel anytime. No contracts.</span>
               </div>
             </div>
@@ -477,7 +477,7 @@ export default function Leaders() {
           <form className="mx-auto flex max-w-[560px] flex-wrap justify-center gap-3">
             <input type="text" placeholder="First name" className="min-w-[130px] flex-1 rounded-full border border-cream/[0.18] bg-ink px-[22px] py-[15px] font-serif text-base text-cream-solid outline-none" />
             <input type="email" placeholder="Email address" className="min-w-[170px] flex-[1.4] rounded-full border border-cream/[0.18] bg-ink px-[22px] py-[15px] font-serif text-base text-cream-solid outline-none" />
-            <button type="submit" className="whitespace-nowrap rounded-full bg-gold px-7 py-[15px] font-sans text-[13px] font-semibold uppercase tracking-[0.1em] text-ink">Join the movement</button>
+            <Link to="/onboarding?tier=leader" className="whitespace-nowrap rounded-full bg-gold px-7 py-[15px] font-sans text-[13px] font-semibold uppercase tracking-[0.1em] text-ink no-underline">Join the movement</Link>
           </form>
           <p className="mt-[18px] font-serif text-[13px] text-cream/50">Personalized report delivered immediately. No cost.</p>
         </div>

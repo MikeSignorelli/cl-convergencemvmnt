@@ -81,9 +81,9 @@ export default function Home() {
         <div className="relative mx-auto grid max-w-[1200px] grid-cols-1 items-center gap-16 px-8 py-[104px] md:grid-cols-[1.32fr_1fr] md:pb-[116px]">
           <div>
             <div className="mb-8 inline-flex gap-1.5 rounded-full border border-cream/12 bg-white/[0.04] p-[5px]">
-              <Link to="/onboarding?tier=disciple" className="rounded-full bg-gold px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-ink no-underline">For Disciples</Link>
-              <Link to="/onboarding?tier=leader" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Leaders</Link>
-              <Link to="/onboarding?tier=pastor" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Pastors</Link>
+              <span className="rounded-full bg-gold px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-ink">For Disciples</span>
+              <Link to="/leaders" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Leaders</Link>
+              <Link to="/pastors" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Pastors</Link>
             </div>
             <h1 className="mb-7 font-sans text-[42px] font-bold uppercase leading-[0.98] tracking-[0.005em] text-white sm:text-[50px]">
               Break Free From Inherited Patterns.
@@ -399,9 +399,9 @@ export default function Home() {
                 <div className="font-sans text-[34px] font-bold text-cream-solid">
                   $49<span className="text-base font-medium text-cream/60">/mo</span>
                 </div>
-                <a href="#membership" className="inline-flex items-center gap-2.5 rounded-full bg-gold px-[42px] py-[17px] font-sans text-[15px] font-semibold uppercase tracking-[0.1em] text-ink no-underline">
+                <Link to="/onboarding?tier=disciple" className="inline-flex items-center gap-2.5 rounded-full bg-gold px-[42px] py-[17px] font-sans text-[15px] font-semibold uppercase tracking-[0.1em] text-ink no-underline">
                   Join the movement
-                </a>
+                </Link>
               </div>
             </div>
           </div>

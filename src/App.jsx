@@ -7,6 +7,7 @@ import Events  from './pages/Events'
 
 import Dashboard     from './pages/member/Dashboard'
 import Onboarding    from './pages/member/Onboarding'
+import SetPassword   from './pages/member/SetPassword'
 import CourseLibrary from './pages/member/CourseLibrary'
 import CourseDetail  from './pages/member/CourseDetail'
 import Player        from './pages/member/Player'
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/events"  element={<Events />} />
 
         <Route path="/onboarding"     element={<Onboarding />} />
+        <Route path="/signup/complete" element={<SetPassword />} />
         <Route path="/dashboard"      element={<Dashboard />} />
         <Route path="/courses"        element={<CourseLibrary />} />
         <Route path="/courses/detail" element={<CourseDetail />} />
