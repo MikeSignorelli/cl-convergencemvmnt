@@ -3,6 +3,23 @@ import { supabase } from './supabaseClient'
 
 const AuthContext = createContext(null)
 
+// Signup completion (magic-link password submit, or the Google branch on
+// /signup/complete) creates the profiles row itself, in a window that spans
+// a client-side route change to /onboarding once it succeeds. A plain
+// pathname check doesn't cover that: this effect's own profile fetch can
+// still be in flight from before the navigation and resolve after it,
+// finding "no profile yet" and signing the freshly-created account back out
+// from under it. An in-memory flag (survives the client-side route change,
+// since nothing here triggers a real page reload) closes that race —
+// SetPassword sets it for the whole time it's creating the profile.
+let signupCompleting = false
+export function beginSignupCompletion() {
+  signupCompleting = true
+}
+export function endSignupCompletion() {
+  signupCompleting = false
+}
+
 async function fetchProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')
@@ -43,10 +60,12 @@ export function AuthProvider({ children }) {
       const p = await fetchProfile(userId)
       if (cancelled) return
       if (!p) {
-        // /signup/complete creates the profiles row itself (magic-link or
-        // Google signup, both mid-flight) — don't yank the session out from
-        // under it while that's in progress.
-        if (window.location.pathname === '/signup/complete') {
+        // Signup (magic-link or Google) creates the profiles row itself —
+        // don't yank the session out from under it while that's in
+        // progress. Pathname is a secondary guard for the common case;
+        // signupCompleting covers the async race around the route change
+        // to /onboarding once it succeeds (see comment above).
+        if (signupCompleting || window.location.pathname === '/signup/complete') {
           setProfile(null)
           return
         }

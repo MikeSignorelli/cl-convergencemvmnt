@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
-import { useAuth } from '../../lib/AuthContext'
+import { useAuth, beginSignupCompletion, endSignupCompletion } from '../../lib/AuthContext'
 import { completeGoogleSignup, completeSignup, hasProfile } from '../../lib/onboardingSignup'
 import { seedOnboardingSession, PROFILE_STEP } from './useOnboardingSession'
 import { isCommonPassword } from '../../lib/commonPasswords'
@@ -111,6 +111,7 @@ export default function SetPassword() {
       // profile from what was stashed before the OAuth redirect and skip
       // straight to the rest of onboarding.
       if (session.user.app_metadata?.provider === 'google') {
+        beginSignupCompletion()
         try {
           const { answers } = await completeGoogleSignup(session.user)
           if (cancelled) return
@@ -123,6 +124,11 @@ export default function SetPassword() {
           if (!cancelled) navigate('/onboarding', { replace: true })
         } catch {
           if (!cancelled) setStatus('google-error')
+        } finally {
+          // refreshProfile() above already gives AuthContext the settled
+          // profile before this lock lifts, so there's no gap where it
+          // could re-check with stale state and reject the new session.
+          endSignupCompletion()
         }
         return
       }
@@ -154,15 +160,19 @@ export default function SetPassword() {
     }
 
     setSubmitting(true)
+    beginSignupCompletion()
     try {
       const { answers } = await completeSignup({ password })
       if (answers) {
         seedOnboardingSession({ step: PROFILE_STEP, ...answers })
       }
+      await refreshProfile()
       navigate('/onboarding', { replace: true })
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.')
       setSubmitting(false)
+    } finally {
+      endSignupCompletion()
     }
   }
 
