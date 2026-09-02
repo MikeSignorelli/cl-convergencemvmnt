@@ -100,6 +100,26 @@ const ADMIN = [
     ),
   },
   {
+    label: 'Upload Courses',
+    to: '/admin/courses',
+    icon: (
+      <>
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <path d="m10 9 5 3-5 3z" />
+      </>
+    ),
+  },
+  {
+    label: 'Upload Live Sessions',
+    to: '/admin/live-sessions',
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" />
+      </>
+    ),
+  },
+  {
     label: 'Upload Resources',
     to: '/admin/resources',
     icon: (
