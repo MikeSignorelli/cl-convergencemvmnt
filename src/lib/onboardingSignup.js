@@ -108,18 +108,27 @@ const GOOGLE_SIGNUP_KEY = 'onboarding_google_signup'
 
 // Google OAuth is a full-page redirect away and back, so the username +
 // wizard answers picked before it (we don't know the user's real email
-// until Google returns it) are stashed in sessionStorage rather than the
+// until Google returns it) are stashed rather than going through the
 // pending_onboarding table, and picked back up on /signup/complete.
+// localStorage rather than sessionStorage: a full OAuth round trip can
+// take long enough to cross a browser restart (an update relaunch, the
+// OS reclaiming a backgrounded tab on mobile, etc.), and sessionStorage
+// doesn't survive that — losing the stash mid-flow stranded a real
+// Google-authenticated account with no profile.
 export function stashGoogleSignup({ username, answers }) {
-  sessionStorage.setItem(GOOGLE_SIGNUP_KEY, JSON.stringify({ username, answers }))
+  localStorage.setItem(GOOGLE_SIGNUP_KEY, JSON.stringify({ username, answers, stashedAt: Date.now() }))
 }
 
+const GOOGLE_SIGNUP_MAX_AGE_MS = 30 * 60 * 1000
+
 function popGoogleSignup() {
-  const raw = sessionStorage.getItem(GOOGLE_SIGNUP_KEY)
-  sessionStorage.removeItem(GOOGLE_SIGNUP_KEY)
+  const raw = localStorage.getItem(GOOGLE_SIGNUP_KEY)
+  localStorage.removeItem(GOOGLE_SIGNUP_KEY)
   if (!raw) return null
   try {
-    return JSON.parse(raw)
+    const parsed = JSON.parse(raw)
+    if (Date.now() - parsed.stashedAt > GOOGLE_SIGNUP_MAX_AGE_MS) return null
+    return parsed
   } catch {
     return null
   }
