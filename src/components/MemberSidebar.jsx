@@ -86,6 +86,21 @@ const GROW = [
   },
 ]
 
+const ADMIN = [
+  {
+    label: 'Members',
+    to: '/admin/members',
+    icon: (
+      <>
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </>
+    ),
+  },
+]
+
 function NavGroup({ title, items, active }) {
   return (
     <div className="flex flex-col gap-0.5">
@@ -118,7 +133,7 @@ function NavGroup({ title, items, active }) {
 }
 
 export default function MemberSidebar({ active }) {
-  const { profile } = useAuth()
+  const { profile, isAdmin } = useAuth()
   const displayName = profile?.display_name || profile?.username || '—'
   const initials = initialsOf(displayName) || '—'
   const tierLabel = profile?.tier ? profile.tier[0].toUpperCase() + profile.tier.slice(1) : ''
@@ -132,6 +147,7 @@ export default function MemberSidebar({ active }) {
         <NavGroup title="Learn" items={LEARN} active={active} />
         <NavGroup title="Connect" items={CONNECT} active={active} />
         <NavGroup title="Grow" items={GROW} active={active} />
+        {isAdmin && <NavGroup title="Admin" items={ADMIN} active={active} />}
       </nav>
       <div className="flex items-center gap-2.5 rounded-[11px] border border-cream/[0.07] bg-cream/[0.04] p-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/[0.14] font-sans text-[13px] font-bold text-gold">{initials}</div>

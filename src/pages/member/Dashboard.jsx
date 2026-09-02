@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
+import { useAuth } from '../../lib/AuthContext'
 import continueWatchingImg from '../../assets/app-images/dashboard-continue-watching.jpg'
 import dailyResetImg from '../../assets/app-images/dashboard-daily-reset.jpg'
 
@@ -88,7 +89,9 @@ function todayLabel() {
 }
 
 export default function Dashboard() {
-  const [tier, setTier] = useState('disciple')
+  const { profile, isAdmin, previewTier, setPreviewTier } = useAuth()
+  const tier = isAdmin ? previewTier || 'disciple' : profile?.tier || 'disciple'
+  const readOnly = isAdmin
   const [dailyDone, setDailyDone] = useState(false)
   const t = TIERS[tier]
   const freedomDay = t.streak
@@ -112,26 +115,28 @@ export default function Dashboard() {
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
-              <div className="flex gap-1 rounded-full border border-cream/10 bg-cream/5 p-1">
-                {Object.values(TIERS).map((tv) => {
-                  const active = tv.key === tier
-                  return (
-                    <button
-                      key={tv.key}
-                      type="button"
-                      onClick={() => setTier(tv.key)}
-                      className="rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.12em]"
-                      style={
-                        active
-                          ? { background: t.accent, color: '#171C10' }
-                          : { background: 'transparent', color: 'rgba(240,238,229,0.6)' }
-                      }
-                    >
-                      {tv.label}
-                    </button>
-                  )
-                })}
-              </div>
+              {isAdmin && (
+                <div className="flex gap-1 rounded-full border border-cream/10 bg-cream/5 p-1">
+                  {Object.values(TIERS).map((tv) => {
+                    const active = tv.key === tier
+                    return (
+                      <button
+                        key={tv.key}
+                        type="button"
+                        onClick={() => setPreviewTier(tv.key)}
+                        className="rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.12em]"
+                        style={
+                          active
+                            ? { background: t.accent, color: '#171C10' }
+                            : { background: 'transparent', color: 'rgba(240,238,229,0.6)' }
+                        }
+                      >
+                        {tv.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
 
               <div className="flex gap-3.5">
                 <Link
@@ -149,6 +154,18 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          {readOnly && (
+            <div className="mb-[22px] flex items-center gap-2.5 rounded-cv-lg border border-gold/25 bg-gold/[0.08] px-5 py-3">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E9CF9C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <span className="font-sans text-[12.5px] font-semibold uppercase tracking-[0.08em] text-[#E9CF9C]">
+                Read-only preview — viewing the {t.label} experience as admin
+              </span>
+            </div>
+          )}
 
           <div className="grid grid-cols-[minmax(0,1.55fr)_minmax(300px,1fr)] items-start gap-[22px]">
             {/* Left column */}
@@ -233,11 +250,11 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setDailyDone(true)}
-                  disabled={dailyDone}
+                  disabled={dailyDone || readOnly}
                   className="rounded-full px-[22px] py-3 font-sans text-xs font-semibold uppercase tracking-[0.12em] disabled:cursor-default"
                   style={{
-                    background: dailyDone ? 'rgba(240,238,229,0.12)' : t.accent,
-                    color: dailyDone ? 'rgba(240,238,229,0.6)' : '#171C10',
+                    background: dailyDone || readOnly ? 'rgba(240,238,229,0.12)' : t.accent,
+                    color: dailyDone || readOnly ? 'rgba(240,238,229,0.6)' : '#171C10',
                   }}
                 >
                   {dailyDone ? 'Completed' : 'Mark complete'}
@@ -324,7 +341,8 @@ export default function Dashboard() {
                 </div>
                 <button
                   type="button"
-                  className="w-full rounded-full py-3 font-sans text-xs font-semibold uppercase tracking-[0.12em]"
+                  disabled={readOnly}
+                  className="w-full rounded-full py-3 font-sans text-xs font-semibold uppercase tracking-[0.12em] disabled:cursor-default disabled:opacity-50"
                   style={{ background: t.accent, color: '#171C10' }}
                 >
                   Add to calendar
@@ -366,7 +384,9 @@ export default function Dashboard() {
                   </div>
                   <a
                     href="#"
-                    className="shrink-0 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] no-underline"
+                    onClick={(e) => readOnly && e.preventDefault()}
+                    aria-disabled={readOnly}
+                    className={`shrink-0 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] no-underline ${readOnly ? 'pointer-events-none opacity-50' : ''}`}
                     style={{ color: t.accent }}
                   >
                     Check in →
