@@ -25,7 +25,7 @@ const LEARN = [
   },
   {
     label: 'Live sessions',
-    to: '#',
+    to: '/live-sessions',
     icon: (
       <>
         <circle cx="12" cy="12" r="10" />
@@ -35,7 +35,7 @@ const LEARN = [
   },
   {
     label: 'Resources',
-    to: '#',
+    to: '/resources',
     icon: (
       <>
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -96,37 +96,6 @@ const ADMIN = [
         <circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
         <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </>
-    ),
-  },
-  {
-    label: 'Upload Courses',
-    to: '/admin/courses',
-    icon: (
-      <>
-        <rect x="2" y="4" width="20" height="16" rx="2" />
-        <path d="m10 9 5 3-5 3z" />
-      </>
-    ),
-  },
-  {
-    label: 'Upload Live Sessions',
-    to: '/admin/live-sessions',
-    icon: (
-      <>
-        <circle cx="12" cy="12" r="10" />
-        <path d="M12 6v6l4 2" />
-      </>
-    ),
-  },
-  {
-    label: 'Upload Resources',
-    to: '/admin/resources',
-    icon: (
-      <>
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-        <path d="M17 8l-5-5-5 5" />
-        <path d="M12 3v12" />
       </>
     ),
   },

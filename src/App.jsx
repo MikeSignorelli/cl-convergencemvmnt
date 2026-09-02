@@ -35,12 +35,12 @@ export default function App() {
         <Route path="/login"          element={<Login />} />
         <Route path="/dashboard"      element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/admin/members"  element={<RequireAuth adminOnly><Members /></RequireAuth>} />
-        <Route path="/admin/resources" element={<RequireAuth adminOnly><UploadResources /></RequireAuth>} />
         <Route path="/admin/courses" element={<RequireAuth adminOnly><UploadCourses /></RequireAuth>} />
-        <Route path="/admin/live-sessions" element={<RequireAuth adminOnly><UploadLiveSessions /></RequireAuth>} />
         <Route path="/admin/analytics" element={<RequireAuth adminOnly><Analytics /></RequireAuth>} />
         <Route path="/courses"        element={<CourseLibrary />} />
         <Route path="/courses/detail" element={<CourseDetail />} />
+        <Route path="/live-sessions"  element={<UploadLiveSessions />} />
+        <Route path="/resources"      element={<UploadResources />} />
         <Route path="/player"         element={<Player />} />
         <Route path="/progress"       element={<Progress />} />
 

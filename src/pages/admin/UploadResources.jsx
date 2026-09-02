@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
+import { useAuth } from '../../lib/AuthContext'
 import {
   createResource,
   deleteResource,
+  getResourceDownloadUrl,
   listResources,
   uploadResourceFile,
   validateResourceFile,
@@ -12,6 +14,8 @@ import {
 const TIERS = ['disciple', 'leader', 'pastor']
 
 export default function UploadResources() {
+  const { isAdmin } = useAuth()
+  const [showForm, setShowForm] = useState(false)
   const fileInputRef = useRef(null)
   const [resources, setResources] = useState([])
   const [loading, setLoading] = useState(true)
@@ -91,6 +95,7 @@ export default function UploadResources() {
       setFile(null)
       setExternalUrl('')
       if (fileInputRef.current) fileInputRef.current.value = ''
+      setShowForm(false)
       await refresh()
     } catch (err) {
       setError(err.message || 'Could not save this resource.')
@@ -107,19 +112,37 @@ export default function UploadResources() {
     }
   }
 
+  async function handleOpen(resource) {
+    if (resource.external_url) {
+      window.open(resource.external_url, '_blank', 'noopener')
+      return
+    }
+    try {
+      const url = await getResourceDownloadUrl(resource.file_path)
+      window.open(url, '_blank', 'noopener')
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   return (
     <div className="flex min-h-screen bg-ink font-sans text-cream">
-      <MemberSidebar active="/admin/resources" />
+      <MemberSidebar active="/resources" />
       <div className="flex flex-1 flex-col min-w-0">
-        <MemberTopbar searchPlaceholder="Search resources…" />
+        <MemberTopbar
+          searchPlaceholder="Search resources…"
+          actionLabel={isAdmin ? 'Upload Resources' : undefined}
+          actionOnClick={() => setShowForm((v) => !v)}
+        />
         <main className="mx-auto w-full max-w-[1180px] flex-1 px-8 pb-16 pt-9">
           <h1 className="mb-1 font-sans text-[28px] font-bold uppercase leading-[1.05] text-white">
-            Upload resources
+            Resources
           </h1>
           <p className="mb-6 font-serif text-[15px] text-cream/60">
-            PDFs, templates, or links — visible to the tiers you choose.
+            PDFs, templates, and links for your tier.
           </p>
 
+          {isAdmin && showForm && (
           <form
             onSubmit={handleSubmit}
             className="mb-8 flex flex-col gap-4 rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-6"
@@ -206,6 +229,7 @@ export default function UploadResources() {
               {submitting ? 'Saving…' : 'Add resource'}
             </button>
           </form>
+          )}
 
           <div className="overflow-hidden rounded-cv-lg border border-cream/[0.09]">
             <table className="w-full border-collapse text-left">
@@ -215,17 +239,18 @@ export default function UploadResources() {
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Visible to</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Type</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50" />
+                  {isAdmin && <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50" />}
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={4} className="px-5 py-6 text-center font-serif text-cream/50">Loading…</td>
+                    <td colSpan={isAdmin ? 5 : 4} className="px-5 py-6 text-center font-serif text-cream/50">Loading…</td>
                   </tr>
                 )}
                 {!loading && resources.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-5 py-6 text-center font-serif text-cream/50">No resources yet.</td>
+                    <td colSpan={isAdmin ? 5 : 4} className="px-5 py-6 text-center font-serif text-cream/50">No resources yet.</td>
                   </tr>
                 )}
                 {!loading &&
@@ -239,12 +264,23 @@ export default function UploadResources() {
                       <td className="px-5 py-3.5 text-right">
                         <button
                           type="button"
+                          onClick={() => handleOpen(r)}
+                          className="cursor-pointer border-none bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-gold"
+                        >
+                          Open
+                        </button>
+                      </td>
+                      {isAdmin && (
+                      <td className="px-5 py-3.5 text-right">
+                        <button
+                          type="button"
                           onClick={() => handleDelete(r)}
                           className="cursor-pointer border-none bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-[#D8888A]"
                         >
                           Delete
                         </button>
                       </td>
+                      )}
                     </tr>
                   ))}
               </tbody>

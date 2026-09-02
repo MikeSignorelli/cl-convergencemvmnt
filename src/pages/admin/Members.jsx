@@ -77,7 +77,7 @@ export default function Members() {
 
           <div className="mb-6 rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-5">
             <div className="mb-3 font-sans text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
-              Preview a tier&rsquo;s dashboard (read-only)
+              Preview a tier&rsquo;s dashboard
             </div>
             <div className="flex flex-wrap gap-2.5">
               {PREVIEW_TIERS.map((t) => (

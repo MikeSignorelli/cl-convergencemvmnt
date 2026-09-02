@@ -1,6 +1,7 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
+import { useAuth } from '../../lib/AuthContext'
 import heroImage from '../../assets/app-images/course-library-1.jpg'
 import img2 from '../../assets/app-images/course-library-2.jpg'
 import img3 from '../../assets/app-images/course-library-3.jpg'
@@ -119,11 +120,18 @@ function CourseRow({ title, courses }) {
 }
 
 export default function CourseLibrary() {
+  const { isAdmin } = useAuth()
+  const navigate = useNavigate()
+
   return (
     <div className="flex min-h-screen bg-ink font-sans text-cream">
       <MemberSidebar active="/courses" />
       <div className="flex flex-1 flex-col min-w-0">
-        <MemberTopbar searchPlaceholder="Search courses…" />
+        <MemberTopbar
+          searchPlaceholder="Search courses…"
+          actionLabel={isAdmin ? 'Upload Courses' : undefined}
+          actionOnClick={() => navigate('/admin/courses')}
+        />
         <main className="flex-1 pb-16">
           <section className="relative flex min-h-[380px] items-end overflow-hidden">
             <img
