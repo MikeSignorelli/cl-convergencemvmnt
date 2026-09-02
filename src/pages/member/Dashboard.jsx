@@ -94,6 +94,7 @@ export default function Dashboard() {
   const readOnly = isAdmin
   const [dailyDone, setDailyDone] = useState(false)
   const t = TIERS[tier]
+  const firstName = (profile?.display_name || profile?.username || t.first).trim().split(/\s+/)[0]
   const freedomDay = t.streak
   const freedomPctW = `${((t.streak / 90) * 100).toFixed(1)}%`
 
@@ -110,7 +111,7 @@ export default function Dashboard() {
                 {todayLabel()}
               </div>
               <h1 className="m-0 font-sans text-[32px] font-bold uppercase leading-[1.04] tracking-[0.005em] text-white">
-                Welcome back, {t.first}
+                Welcome back, {firstName}
               </h1>
             </div>
 
