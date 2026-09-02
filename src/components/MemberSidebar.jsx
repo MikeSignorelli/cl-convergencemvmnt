@@ -1,5 +1,11 @@
 import { Link } from 'react-router-dom'
 import logo from '../assets/images/convergence-mvmnt.png'
+import { useAuth } from '../lib/AuthContext'
+
+function initialsOf(name) {
+  if (!name) return ''
+  return name.trim().split(/\s+/).slice(0, 2).map((p) => p[0].toUpperCase()).join('')
+}
 
 const LEARN = [
   {
@@ -112,6 +118,11 @@ function NavGroup({ title, items, active }) {
 }
 
 export default function MemberSidebar({ active }) {
+  const { profile } = useAuth()
+  const displayName = profile?.display_name || profile?.username || '—'
+  const initials = initialsOf(displayName) || '—'
+  const tierLabel = profile?.tier ? profile.tier[0].toUpperCase() + profile.tier.slice(1) : ''
+
   return (
     <aside className="sticky top-0 flex h-screen w-[236px] shrink-0 flex-col gap-7 border-r border-cream/[0.07] bg-ink-deep p-4">
       <Link to="/dashboard" className="block px-2">
@@ -123,10 +134,10 @@ export default function MemberSidebar({ active }) {
         <NavGroup title="Grow" items={GROW} active={active} />
       </nav>
       <div className="flex items-center gap-2.5 rounded-[11px] border border-cream/[0.07] bg-cream/[0.04] p-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/[0.14] font-sans text-[13px] font-bold text-gold">SM</div>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/[0.14] font-sans text-[13px] font-bold text-gold">{initials}</div>
         <div className="min-w-0">
-          <div className="overflow-hidden text-ellipsis whitespace-nowrap font-sans text-[13.5px] font-semibold tracking-[0.02em]">Sarah Mitchell</div>
-          <div className="font-sans text-[10.5px] font-semibold uppercase tracking-[0.14em] text-gold">Disciple</div>
+          <div className="overflow-hidden text-ellipsis whitespace-nowrap font-sans text-[13.5px] font-semibold tracking-[0.02em]">{displayName}</div>
+          <div className="font-sans text-[10.5px] font-semibold uppercase tracking-[0.14em] text-gold">{tierLabel}</div>
         </div>
       </div>
     </aside>

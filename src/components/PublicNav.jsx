@@ -92,21 +92,29 @@ export default function PublicNav({ page = '/' }) {
               <NavItem key={link.label} link={link} />
             ))}
           </div>
-          {cta.to ? (
+          <div className="flex items-center gap-5">
             <Link
-              to={cta.to}
-              className="rounded-full bg-gold px-5 py-2.5 font-sans text-xs font-semibold uppercase tracking-[0.14em] text-ink no-underline"
+              to="/login"
+              className="text-[13px] font-medium uppercase tracking-[0.12em] text-cream/72 no-underline transition-colors hover:text-cream-solid"
             >
-              {cta.label}
+              Login
             </Link>
-          ) : (
-            <a
-              href={cta.href}
-              className="rounded-full bg-gold px-5 py-2.5 font-sans text-xs font-semibold uppercase tracking-[0.14em] text-ink no-underline"
-            >
-              {cta.label}
-            </a>
-          )}
+            {cta.to ? (
+              <Link
+                to={cta.to}
+                className="rounded-full bg-gold px-5 py-2.5 font-sans text-xs font-semibold uppercase tracking-[0.14em] text-ink no-underline"
+              >
+                {cta.label}
+              </Link>
+            ) : (
+              <a
+                href={cta.href}
+                className="rounded-full bg-gold px-5 py-2.5 font-sans text-xs font-semibold uppercase tracking-[0.14em] text-ink no-underline"
+              >
+                {cta.label}
+              </a>
+            )}
+          </div>
         </div>
       </nav>
     </>

@@ -1,11 +1,13 @@
 import { Routes, Route } from 'react-router-dom'
 import ScrollToHash from './components/ScrollToHash'
+import RequireAuth from './components/RequireAuth'
 import Home    from './pages/Home'
 import Leaders from './pages/Leaders'
 import Pastors from './pages/Pastors'
 import Events  from './pages/Events'
 
 import Dashboard     from './pages/member/Dashboard'
+import Login          from './pages/member/Login'
 import Onboarding    from './pages/member/Onboarding'
 import SetPassword   from './pages/member/SetPassword'
 import CourseLibrary from './pages/member/CourseLibrary'
@@ -25,7 +27,8 @@ export default function App() {
 
         <Route path="/onboarding"     element={<Onboarding />} />
         <Route path="/signup/complete" element={<SetPassword />} />
-        <Route path="/dashboard"      element={<Dashboard />} />
+        <Route path="/login"          element={<Login />} />
+        <Route path="/dashboard"      element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/courses"        element={<CourseLibrary />} />
         <Route path="/courses/detail" element={<CourseDetail />} />
         <Route path="/player"         element={<Player />} />

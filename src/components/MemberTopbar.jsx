@@ -1,4 +1,14 @@
+import { useAuth } from '../lib/AuthContext'
+
+function initialsOf(name) {
+  if (!name) return ''
+  return name.trim().split(/\s+/).slice(0, 2).map((p) => p[0].toUpperCase()).join('')
+}
+
 export default function MemberTopbar({ searchPlaceholder = 'Search courses, posts, people…', streak = 12 }) {
+  const { profile } = useAuth()
+  const initials = initialsOf(profile?.display_name || profile?.username) || '—'
+
   return (
     <header className="sticky top-0 z-40 flex h-[66px] items-center justify-between gap-6 border-b border-cream/[0.07] bg-ink/90 px-8 backdrop-blur-md">
       <div className="flex w-80 items-center gap-2.5 rounded-lg border border-cream/[0.08] bg-cream/5 px-3.5 py-2.5 text-cream/40">
@@ -15,7 +25,7 @@ export default function MemberTopbar({ searchPlaceholder = 'Search courses, post
           </svg>
           <span className="font-sans text-[13px] font-bold text-[#E9CF9C]">{streak}-day streak</span>
         </div>
-        <div className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-gold/[0.14] font-sans text-[12.5px] font-bold text-gold">SM</div>
+        <div className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-gold/[0.14] font-sans text-[12.5px] font-bold text-gold">{initials}</div>
       </div>
     </header>
   )
