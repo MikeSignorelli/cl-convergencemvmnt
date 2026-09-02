@@ -14,7 +14,8 @@ import CourseLibrary from './pages/member/CourseLibrary'
 import CourseDetail  from './pages/member/CourseDetail'
 import Player        from './pages/member/Player'
 import Progress      from './pages/member/Progress'
-import Members       from './pages/admin/Members'
+import Members         from './pages/admin/Members'
+import UploadResources from './pages/admin/UploadResources'
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/login"          element={<Login />} />
         <Route path="/dashboard"      element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/admin/members"  element={<RequireAuth adminOnly><Members /></RequireAuth>} />
+        <Route path="/admin/resources" element={<RequireAuth adminOnly><UploadResources /></RequireAuth>} />
         <Route path="/courses"        element={<CourseLibrary />} />
         <Route path="/courses/detail" element={<CourseDetail />} />
         <Route path="/player"         element={<Player />} />

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 
 const AuthContext = createContext(null)
@@ -21,37 +21,39 @@ export function AuthProvider({ children }) {
   // in-memory only (not sessionStorage) so it never persists across a
   // refresh and can't be mistaken for the admin's real identity.
   const [previewTier, setPreviewTier] = useState(null)
-  const loadedUserId = useRef(null)
 
   useEffect(() => {
     let cancelled = false
 
-    async function loadProfileFor(nextSession) {
+    // Single entry point for applying a session: always awaits the profile
+    // fetch to completion before any caller can treat state as settled.
+    // supabase-js fires onAuthStateChange's INITIAL_SESSION event around
+    // the same time getSession() resolves — both call this, so `loading`
+    // must not flip to false until whichever call is currently in flight
+    // for the CURRENT user has actually finished, or isAdmin can briefly
+    // read false (profile still null) and trip an adminOnly redirect.
+    async function syncSession(nextSession) {
+      setSession(nextSession)
       const userId = nextSession?.user?.id ?? null
       if (!userId) {
-        loadedUserId.current = null
         if (!cancelled) setProfile(null)
         return
       }
-      // Avoid refetching on every token-refresh event for the same user.
-      if (loadedUserId.current === userId) return
-      loadedUserId.current = userId
       const p = await fetchProfile(userId)
       if (!cancelled) setProfile(p)
     }
 
-    supabase.auth.getSession().then(async ({ data }) => {
+    supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return
-      setSession(data.session)
-      await loadProfileFor(data.session)
-      if (!cancelled) setLoading(false)
+      syncSession(data.session).then(() => {
+        if (!cancelled) setLoading(false)
+      })
     })
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (cancelled) return
-      setSession(nextSession)
       if (!nextSession) setPreviewTier(null)
-      loadProfileFor(nextSession)
+      syncSession(nextSession)
     })
 
     return () => {
