@@ -62,14 +62,16 @@ export default function SetPassword() {
         return
       }
 
-      if (!hasAuthParams()) {
-        if (!cancelled) setStatus('invalid')
-        return
-      }
-
-      // The Supabase client exchanges the link for a session automatically on
-      // load; give it a moment via onAuthStateChange rather than assuming
-      // getSession() already has it synchronously.
+      // Don't hard-gate on hasAuthParams() still being in the URL: the
+      // Supabase client's own detectSessionInUrl consumes and strips the
+      // hash/query token as soon as it initializes, which can (and often
+      // does) happen before this effect runs — leaving a real, valid
+      // session with no trace of the params that produced it. So always
+      // check for a session directly, giving it a moment via
+      // onAuthStateChange rather than assuming getSession() already has
+      // it synchronously, and only treat it as invalid/expired once that
+      // comes up empty.
+      const hadAuthParams = hasAuthParams()
       let session = (await supabase.auth.getSession()).data.session
       if (!session) {
         session = await new Promise((resolvePromise) => {
@@ -89,7 +91,7 @@ export default function SetPassword() {
       if (cancelled) return
 
       if (!session) {
-        setStatus('expired')
+        setStatus(hadAuthParams ? 'expired' : 'invalid')
         return
       }
 
