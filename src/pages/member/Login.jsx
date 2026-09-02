@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
+import { useAuth } from '../../lib/AuthContext'
 import logo from '../../assets/images/convergence-mvmnt.png'
 
 function Shell({ children }) {
@@ -41,11 +42,18 @@ function GoogleIcon() {
 
 export default function Login() {
   const navigate = useNavigate()
+  const { authError, clearAuthError } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [googleSubmitting, setGoogleSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!authError) return
+    setError(authError)
+    clearAuthError()
+  }, [authError, clearAuthError])
 
   async function handleSubmit(e) {
     e.preventDefault()

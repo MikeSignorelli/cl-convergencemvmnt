@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
-import { completeSignup, hasProfile } from '../../lib/onboardingSignup'
+import { useAuth } from '../../lib/AuthContext'
+import { completeGoogleSignup, completeSignup, hasProfile } from '../../lib/onboardingSignup'
 import { seedOnboardingSession, PROFILE_STEP } from './useOnboardingSession'
 import { isCommonPassword } from '../../lib/commonPasswords'
 import logo from '../../assets/images/convergence-mvmnt.png'
@@ -43,7 +44,8 @@ function StatusMessage({ title, body, children }) {
 
 export default function SetPassword() {
   const navigate = useNavigate()
-  // 'checking' | 'ready' | 'already-member' | 'expired' | 'invalid'
+  const { refreshProfile } = useAuth()
+  // 'checking' | 'ready' | 'already-member' | 'google-error' | 'expired' | 'invalid'
   const [status, setStatus] = useState('checking')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -103,6 +105,26 @@ export default function SetPassword() {
         return
       }
 
+      // Google verifies the email itself — no password to set. Create the
+      // profile from what was stashed before the OAuth redirect and skip
+      // straight to the rest of onboarding.
+      if (session.user.app_metadata?.provider === 'google') {
+        try {
+          const { answers } = await completeGoogleSignup(session.user)
+          if (cancelled) return
+          if (!answers) {
+            setStatus('google-error')
+            return
+          }
+          seedOnboardingSession({ step: PROFILE_STEP, ...answers })
+          await refreshProfile()
+          if (!cancelled) navigate('/onboarding', { replace: true })
+        } catch {
+          if (!cancelled) setStatus('google-error')
+        }
+        return
+      }
+
       setStatus('ready')
     }
 
@@ -110,7 +132,7 @@ export default function SetPassword() {
     return () => {
       cancelled = true
     }
-  }, [navigate])
+  }, [navigate, refreshProfile])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -157,6 +179,24 @@ export default function SetPassword() {
           title="Welcome back"
           body="You already have an account — taking you to your dashboard."
         />
+      </Shell>
+    )
+  }
+
+  if (status === 'google-error') {
+    return (
+      <Shell>
+        <StatusMessage
+          title="Something went wrong"
+          body="We couldn't finish setting up your account. Please restart signup and try again."
+        >
+          <Link
+            to="/onboarding"
+            className="inline-flex items-center gap-2.5 rounded-full bg-gold px-8 py-3.5 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink no-underline"
+          >
+            Back to onboarding
+          </Link>
+        </StatusMessage>
       </Shell>
     )
   }

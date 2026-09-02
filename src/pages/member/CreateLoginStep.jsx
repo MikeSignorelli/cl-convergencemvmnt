@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { supabase } from '../../lib/supabaseClient'
 import {
   EMAIL_PATTERN,
   USERNAME_PATTERN,
@@ -6,6 +7,7 @@ import {
   normalizeEmail,
   normalizeUsername,
   sendSignupEmail,
+  stashGoogleSignup,
   startSignup,
 } from '../../lib/onboardingSignup'
 
@@ -25,6 +27,29 @@ function validateEmailFormat(value) {
   return ''
 }
 
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24">
+      <path
+        fill="#4285F4"
+        d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.82z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.96-1.07 7.95-2.9l-3.88-3.02c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.26v3.12A12 12 0 0 0 12 24z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.27 14.27a7.2 7.2 0 0 1 0-4.54V6.61H1.26a12 12 0 0 0 0 10.78z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.77c1.76 0 3.34.6 4.59 1.79l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.26 6.61l4.01 3.12C6.22 6.88 8.87 4.77 12 4.77z"
+      />
+    </svg>
+  )
+}
+
 export default function CreateLoginStep({ tier, rhythm, picked, onBack }) {
   const [view, setView] = useState('form') // 'form' | 'checkEmail'
   const [username, setUsername] = useState('')
@@ -33,6 +58,7 @@ export default function CreateLoginStep({ tier, rhythm, picked, onBack }) {
   const [emailError, setEmailError] = useState('')
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [googleSubmitting, setGoogleSubmitting] = useState(false)
   const [sentTo, setSentTo] = useState('')
   const [resendCooldown, setResendCooldown] = useState(0)
   const [resending, setResending] = useState(false)
@@ -78,6 +104,36 @@ export default function CreateLoginStep({ tier, rhythm, picked, onBack }) {
       setFormError(err.message || 'Something went wrong. Please try again.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleGoogle() {
+    setFormError('')
+
+    const normalizedUsername = normalizeUsername(username)
+    const usernameFormatError = validateUsernameFormat(normalizedUsername)
+    setUsernameError(usernameFormatError)
+    if (usernameFormatError) return
+
+    setGoogleSubmitting(true)
+    try {
+      const available = await isUsernameAvailable(normalizedUsername)
+      if (!available) {
+        setUsernameError('That username is taken.')
+        setGoogleSubmitting(false)
+        return
+      }
+
+      stashGoogleSignup({ username: normalizedUsername, answers: { tier, rhythm, picked } })
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/signup/complete` },
+      })
+      if (error) throw error
+    } catch (err) {
+      setFormError(err.message || 'Could not start Google sign-up. Please try again.')
+      setGoogleSubmitting(false)
     }
   }
 
@@ -146,31 +202,47 @@ export default function CreateLoginStep({ tier, rhythm, picked, onBack }) {
         Create your login
       </h1>
       <p className="mb-[30px] font-serif text-[16.5px] leading-[1.6] text-cream/72">
-        We&rsquo;ll email you a link to set your password.
+        Sign up with Google, or we&rsquo;ll email you a link to set your password.
       </p>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <div>
-          <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
-            Username
-          </label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => {
-              setUsername(e.target.value)
-              if (usernameError) setUsernameError('')
-            }}
-            onBlur={() => setUsernameError(validateUsernameFormat(normalizeUsername(username)))}
-            placeholder="sarahm"
-            autoComplete="username"
-            className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none"
-          />
-          {usernameError && (
-            <p className="mt-1.5 font-serif text-[13px] text-[#D8888A]">{usernameError}</p>
-          )}
-        </div>
+      <div className="mb-5">
+        <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
+          Username
+        </label>
+        <input
+          type="text"
+          value={username}
+          onChange={(e) => {
+            setUsername(e.target.value)
+            if (usernameError) setUsernameError('')
+          }}
+          onBlur={() => setUsernameError(validateUsernameFormat(normalizeUsername(username)))}
+          placeholder="sarahm"
+          autoComplete="username"
+          className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none"
+        />
+        {usernameError && (
+          <p className="mt-1.5 font-serif text-[13px] text-[#D8888A]">{usernameError}</p>
+        )}
+      </div>
 
+      <button
+        type="button"
+        onClick={handleGoogle}
+        disabled={googleSubmitting || submitting}
+        className="mb-5 flex w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-cream/[0.16] bg-cream/[0.04] px-8 py-3.5 font-sans text-[13px] font-semibold uppercase tracking-[0.1em] text-cream disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <GoogleIcon />
+        {googleSubmitting ? 'Redirecting…' : 'Continue with Google'}
+      </button>
+
+      <div className="mb-5 flex items-center gap-3">
+        <div className="h-px flex-1 bg-cream/[0.1]" />
+        <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.14em] text-cream/40">or</span>
+        <div className="h-px flex-1 bg-cream/[0.1]" />
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         <div>
           <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
             Email
@@ -205,7 +277,7 @@ export default function CreateLoginStep({ tier, rhythm, picked, onBack }) {
           </button>
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || googleSubmitting}
             className="flex cursor-pointer items-center gap-2.5 rounded-full border-none bg-gold px-8 py-3.5 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? 'Sending…' : 'Continue'}

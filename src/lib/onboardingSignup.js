@@ -104,6 +104,43 @@ export async function completeSignup({ password }) {
   return { user, answers: pending.answers }
 }
 
+const GOOGLE_SIGNUP_KEY = 'onboarding_google_signup'
+
+// Google OAuth is a full-page redirect away and back, so the username +
+// wizard answers picked before it (we don't know the user's real email
+// until Google returns it) are stashed in sessionStorage rather than the
+// pending_onboarding table, and picked back up on /signup/complete.
+export function stashGoogleSignup({ username, answers }) {
+  sessionStorage.setItem(GOOGLE_SIGNUP_KEY, JSON.stringify({ username, answers }))
+}
+
+function popGoogleSignup() {
+  const raw = sessionStorage.getItem(GOOGLE_SIGNUP_KEY)
+  sessionStorage.removeItem(GOOGLE_SIGNUP_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+// Completes a Google-initiated signup for the now-authenticated user.
+// Google verifies the email itself, so there's no password to set and no
+// pending_onboarding round trip — just create the profile from what was
+// stashed before the redirect.
+export async function completeGoogleSignup(user) {
+  const stashed = popGoogleSignup()
+  if (!stashed) return { user, answers: null }
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .insert({ id: user.id, username: stashed.username, tier: stashed.answers?.tier ?? null })
+  if (profileError && profileError.code !== '23505') throw profileError
+
+  return { user, answers: stashed.answers }
+}
+
 export async function hasProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')

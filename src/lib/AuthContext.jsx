@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 
 const AuthContext = createContext(null)
@@ -17,6 +17,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [authError, setAuthError] = useState('')
   // Admin's "view this tier's dashboard read-only" state. Intentionally
   // in-memory only (not sessionStorage) so it never persists across a
   // refresh and can't be mistaken for the admin's real identity.
@@ -40,7 +41,26 @@ export function AuthProvider({ children }) {
         return
       }
       const p = await fetchProfile(userId)
-      if (!cancelled) setProfile(p)
+      if (cancelled) return
+      if (!p) {
+        // /signup/complete creates the profiles row itself (magic-link or
+        // Google signup, both mid-flight) — don't yank the session out from
+        // under it while that's in progress.
+        if (window.location.pathname === '/signup/complete') {
+          setProfile(null)
+          return
+        }
+        // Otherwise: authenticated (e.g. via Google) but no matching
+        // profiles row — this app only grants access to members who
+        // already have an account, so reject the session rather than
+        // leaving them signed in with a blank profile.
+        setProfile(null)
+        setSession(null)
+        setAuthError("This email isn't registered as a member. Please contact us, or join the movement to get access.")
+        await supabase.auth.signOut()
+        return
+      }
+      setProfile(p)
     }
 
     supabase.auth.getSession().then(({ data }) => {
@@ -64,7 +84,31 @@ export function AuthProvider({ children }) {
 
   const isAdmin = profile?.tier === 'admin'
 
-  const value = { loading, session, profile, isAdmin, previewTier, setPreviewTier }
+  // Stable references (useCallback with no deps): both are read via a
+  // component effect's dependency array (SetPassword's post-signup resolve,
+  // Login's authError pickup) — a new function identity on every
+  // AuthProvider render would re-trigger those effects on every unrelated
+  // state change here (session/profile settling, etc.), not just once.
+  const refreshProfile = useCallback(async () => {
+    const { data } = await supabase.auth.getSession()
+    const userId = data.session?.user?.id
+    if (!userId) return
+    setProfile(await fetchProfile(userId))
+  }, [])
+
+  const clearAuthError = useCallback(() => setAuthError(''), [])
+
+  const value = {
+    loading,
+    session,
+    profile,
+    isAdmin,
+    previewTier,
+    setPreviewTier,
+    authError,
+    clearAuthError,
+    refreshProfile,
+  }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
