@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import logo from '../assets/images/convergence-mvmnt.png'
 import { useAuth } from '../lib/AuthContext'
 
@@ -145,10 +145,16 @@ function NavGroup({ title, items, active }) {
 }
 
 export default function MemberSidebar({ active }) {
-  const { profile, isAdmin } = useAuth()
+  const { profile, isAdmin, signOut } = useAuth()
+  const navigate = useNavigate()
   const displayName = profile?.display_name || profile?.username || '—'
   const initials = initialsOf(displayName) || '—'
   const tierLabel = profile?.tier ? profile.tier[0].toUpperCase() + profile.tier.slice(1) : ''
+
+  async function handleLogout() {
+    await signOut()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <aside className="sticky top-0 flex h-screen w-[236px] shrink-0 flex-col gap-7 border-r border-cream/[0.07] bg-ink-deep p-4">
@@ -163,10 +169,22 @@ export default function MemberSidebar({ active }) {
       </nav>
       <div className="flex items-center gap-2.5 rounded-[11px] border border-cream/[0.07] bg-cream/[0.04] p-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/[0.14] font-sans text-[13px] font-bold text-gold">{initials}</div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="overflow-hidden text-ellipsis whitespace-nowrap font-sans text-[13.5px] font-semibold tracking-[0.02em]">{displayName}</div>
           <div className="font-sans text-[10.5px] font-semibold uppercase tracking-[0.14em] text-gold">{tierLabel}</div>
         </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          title="Log out"
+          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-none bg-transparent text-cream/45 hover:bg-cream/[0.08] hover:text-cream"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <path d="M16 17l5-5-5-5" />
+            <path d="M21 12H9" />
+          </svg>
+        </button>
       </div>
     </aside>
   )

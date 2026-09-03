@@ -117,6 +117,11 @@ export function AuthProvider({ children }) {
 
   const clearAuthError = useCallback(() => setAuthError(''), [])
 
+  const signOut = useCallback(async () => {
+    setPreviewTier(null)
+    await supabase.auth.signOut()
+  }, [])
+
   const value = {
     loading,
     session,
@@ -127,6 +132,7 @@ export function AuthProvider({ children }) {
     authError,
     clearAuthError,
     refreshProfile,
+    signOut,
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

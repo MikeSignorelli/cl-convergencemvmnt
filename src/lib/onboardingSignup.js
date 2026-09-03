@@ -78,6 +78,17 @@ export async function fetchPendingOnboarding(email) {
 // cleans up the pending record. Returns the stashed onboarding answers so the
 // caller can rehydrate the wizard.
 export async function completeSignup({ password }) {
+  // getSession() only reads whatever's cached client-side, which can look
+  // populated even when the server no longer honors it (e.g. the magic-link
+  // token's brief window elapsed while the password form was being filled
+  // in). getUser() forces a round trip to Auth to confirm the session is
+  // still actually live, so a dead session fails here with a clear message
+  // instead of updateUser() throwing the opaque "Auth session missing!".
+  const { data: userCheck, error: userCheckError } = await supabase.auth.getUser()
+  if (userCheckError || !userCheck?.user) {
+    throw new Error('Your session expired while this was open. Please restart signup to get a fresh link.')
+  }
+
   const { data, error: updateError } = await supabase.auth.updateUser({ password })
   if (updateError) throw updateError
 

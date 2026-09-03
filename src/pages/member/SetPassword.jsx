@@ -95,6 +95,19 @@ export default function SetPassword() {
         return
       }
 
+      // getSession()/onAuthStateChange above only reflect client-cached
+      // state, which can resolve with something session-shaped even when
+      // the server no longer honors it. getUser() forces a round trip to
+      // Auth to confirm it's still actually live before showing the
+      // password form — otherwise the user fills it in only to hit a
+      // confusing "Auth session missing!" on submit.
+      const { data: userCheck, error: userCheckError } = await supabase.auth.getUser()
+      if (cancelled) return
+      if (userCheckError || !userCheck?.user) {
+        setStatus('expired')
+        return
+      }
+
       // Someone clicked a sign-in link for an email that's already a full
       // member (see startSignup's comment on why we can't distinguish this
       // case earlier without leaking account existence) — just sign them in.
