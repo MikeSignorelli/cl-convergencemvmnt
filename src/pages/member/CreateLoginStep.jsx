@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabaseClient'
 import {
   EMAIL_PATTERN,
   USERNAME_PATTERN,
+  checkEmailSignupStatus,
   isUsernameAvailable,
   normalizeEmail,
   normalizeUsername,
@@ -87,6 +88,20 @@ export default function CreateLoginStep({ tier, rhythm, picked, onBack }) {
       const available = await isUsernameAvailable(normalizedUsername)
       if (!available) {
         setUsernameError('That username is taken.')
+        setSubmitting(false)
+        return
+      }
+
+      // Catch the one duplicate-account case that's safe to call out
+      // up front: an email that's Google-only would otherwise get a
+      // "sign-in" magic link it doesn't need, with no explanation of why
+      // password setup never seems to finish. (The reverse case — Google
+      // signup landing on an existing email/password account — surfaces
+      // after the OAuth round trip instead, since we don't know the email
+      // until Google returns it.)
+      const status = await checkEmailSignupStatus(normalizedEmail)
+      if (status.exists && status.providers.includes('google') && !status.providers.includes('email')) {
+        setEmailError('This email is already registered with Google. Please continue with Google Sign-In.')
         setSubmitting(false)
         return
       }

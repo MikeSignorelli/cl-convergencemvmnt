@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth, beginSignupCompletion, endSignupCompletion } from '../../lib/AuthContext'
-import { completeGoogleSignup, completeSignup, hasProfile } from '../../lib/onboardingSignup'
+import { completeGoogleSignup, completeSignup, hasProfile, hasGoogleSignupStash } from '../../lib/onboardingSignup'
 import { seedOnboardingSession, PROFILE_STEP } from './useOnboardingSession'
 import { isCommonPassword } from '../../lib/commonPasswords'
 import logo from '../../assets/images/convergence-mvmnt.png'
@@ -123,7 +123,17 @@ export default function SetPassword() {
       // Google verifies the email itself — no password to set. Create the
       // profile from what was stashed before the OAuth redirect and skip
       // straight to the rest of onboarding.
-      if (session.user.app_metadata?.provider === 'google') {
+      //
+      // Detecting "this sign-in came from Google" can't rely solely on
+      // session.user.app_metadata.provider: Supabase pins that to whichever
+      // method created the account first, so someone who started an email
+      // signup, never confirmed it, then used "Continue with Google" gets
+      // silently auto-linked into the same user row with provider still
+      // reading 'email' — which was routing real Google signups into the
+      // password screen. The stash this app writes right before the OAuth
+      // redirect is authoritative regardless of what Supabase's linking did
+      // underneath it, so it's checked first.
+      if (hasGoogleSignupStash() || session.user.app_metadata?.provider === 'google') {
         beginSignupCompletion()
         try {
           const { answers } = await completeGoogleSignup(session.user)

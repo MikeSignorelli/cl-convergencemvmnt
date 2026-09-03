@@ -24,6 +24,18 @@ export async function isUsernameAvailable(username) {
   return data === true
 }
 
+// Pre-flight check so the signup form can tell someone "that email is
+// already registered with Google" before sending a magic link they'll
+// never need — rather than letting them discover it only after checking
+// their inbox. See migration 0010 for why this is safe to expose pre-auth.
+export async function checkEmailSignupStatus(email) {
+  const { data, error } = await supabase.rpc('check_email_signup_status', {
+    p_email: email,
+  })
+  if (error) throw error
+  return data || { exists: false, providers: [] }
+}
+
 // Starts (or restarts) a signup: stashes the username + onboarding answers
 // collected so far against this email, then sends the magic-link email.
 // Upserts on email, so resubmitting the same email reuses the existing
@@ -60,7 +72,14 @@ export async function sendSignupEmail(email) {
       shouldCreateUser: true,
     },
   })
-  if (error) throw error
+  if (error) {
+    // Supabase's own message here ("Email rate limit exceeded", a raw 429)
+    // is meaningless to a customer and doesn't say what to do about it.
+    if (error.status === 429 || /rate limit/i.test(error.message || '')) {
+      throw new Error("We're sending a lot of signup emails right now — please try again in a few minutes.")
+    }
+    throw error
+  }
 }
 
 export async function fetchPendingOnboarding(email) {
@@ -132,9 +151,8 @@ export function stashGoogleSignup({ username, answers }) {
 
 const GOOGLE_SIGNUP_MAX_AGE_MS = 30 * 60 * 1000
 
-function popGoogleSignup() {
+function readGoogleSignup() {
   const raw = localStorage.getItem(GOOGLE_SIGNUP_KEY)
-  localStorage.removeItem(GOOGLE_SIGNUP_KEY)
   if (!raw) return null
   try {
     const parsed = JSON.parse(raw)
@@ -143,6 +161,26 @@ function popGoogleSignup() {
   } catch {
     return null
   }
+}
+
+function popGoogleSignup() {
+  const parsed = readGoogleSignup()
+  localStorage.removeItem(GOOGLE_SIGNUP_KEY)
+  return parsed
+}
+
+// Non-destructive check for "did THIS browser just come back from a
+// Google signup redirect we initiated". This is the reliable signal for
+// routing /signup/complete — session.user.app_metadata.provider is NOT:
+// Supabase keeps `provider` pinned to whichever auth method created the
+// account first, so someone who tried email signup, never confirmed it
+// (see the email rate-limit issue), and then used "Continue with Google"
+// gets auto-linked into the *same* user row with `provider` still reading
+// 'email' even though this sign-in was 100% Google. The stash is written
+// by this app immediately before the redirect, so it's authoritative
+// regardless of what Supabase's linking did to the account underneath it.
+export function hasGoogleSignupStash() {
+  return readGoogleSignup() !== null
 }
 
 // Completes a Google-initiated signup for the now-authenticated user.

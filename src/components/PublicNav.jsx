@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import logo from '../assets/images/convergence-mvmnt.png'
+import { useAuth } from '../lib/AuthContext'
 
 const NAV_LINKS = {
   '/': [
@@ -60,8 +61,16 @@ function NavItem({ link }) {
 
 export default function PublicNav({ page = '/' }) {
   const [dismissed, setDismissed] = useState(false)
+  const { session, signOut } = useAuth()
+  const navigate = useNavigate()
   const links = NAV_LINKS[page] ?? NAV_LINKS['/']
   const cta = CTA[page] ?? CTA['/']
+  const isLoggedIn = !!session
+
+  async function handleLogout() {
+    await signOut()
+    navigate('/login')
+  }
 
   return (
     <>
@@ -93,13 +102,30 @@ export default function PublicNav({ page = '/' }) {
             ))}
           </div>
           <div className="flex items-center gap-5">
-            <Link
-              to="/login"
-              className="text-[13px] font-medium uppercase tracking-[0.12em] text-cream/72 no-underline transition-colors hover:text-cream-solid"
-            >
-              Login
-            </Link>
-            {cta.to ? (
+            {isLoggedIn ? (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="cursor-pointer border-none bg-transparent p-0 font-sans text-[13px] font-medium uppercase tracking-[0.12em] text-cream/72 transition-colors hover:text-cream-solid"
+              >
+                Logout
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="text-[13px] font-medium uppercase tracking-[0.12em] text-cream/72 no-underline transition-colors hover:text-cream-solid"
+              >
+                Login
+              </Link>
+            )}
+            {isLoggedIn ? (
+              <Link
+                to="/dashboard"
+                className="rounded-full bg-gold px-5 py-2.5 font-sans text-xs font-semibold uppercase tracking-[0.14em] text-ink no-underline"
+              >
+                Dashboard
+              </Link>
+            ) : cta.to ? (
               <Link
                 to={cta.to}
                 className="rounded-full bg-gold px-5 py-2.5 font-sans text-xs font-semibold uppercase tracking-[0.14em] text-ink no-underline"
