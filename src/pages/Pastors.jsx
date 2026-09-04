@@ -115,15 +115,15 @@ export default function Pastors() {
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(transparent_62%,rgba(10,13,7,0.55))]" />
         <div className="relative mx-auto grid max-w-[1200px] grid-cols-1 items-center gap-16 px-8 py-[104px] md:grid-cols-[1.32fr_1fr] md:pb-[116px]">
           <div>
-            <div className="mb-8 inline-flex gap-1.5 rounded-full border border-cream/12 bg-white/[0.04] p-[5px]">
-              <Link to="/" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Disciples</Link>
-              <Link to="/leaders" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Leaders</Link>
+            <div className="mb-8 inline-flex gap-1.5 rounded-full border border-cream/[12%] bg-white/[0.04] p-[5px]">
+              <Link to="/" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/[72%] no-underline">For Disciples</Link>
+              <Link to="/leaders" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/[72%] no-underline">For Leaders</Link>
               <span className="rounded-full bg-gold px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-ink">For Pastors</span>
             </div>
             <h1 className="mb-[26px] font-sans text-[42px] font-bold uppercase leading-[0.98] tracking-[0.005em] text-cream-solid sm:text-[56px]">
               Your church isn&rsquo;t stuck because of your preaching. <span className="text-gold">It&rsquo;s stuck because of your structure.</span>
             </h1>
-            <p className="mb-4 max-w-[520px] font-serif text-[19px] leading-[1.62] text-cream/74">
+            <p className="mb-4 max-w-[520px] font-serif text-[19px] leading-[1.62] text-cream/[74%]">
               You&rsquo;re gifted. You&rsquo;re called. You love your people. But your church has been stuck at the same number for two years &mdash; and your marriage is paying the price.
             </p>
             <p className="mb-[38px] max-w-[520px] font-serif text-[19px] font-medium leading-[1.62] text-cream-solid">
@@ -133,13 +133,13 @@ export default function Pastors() {
               <a href="#guide" className="inline-flex items-center gap-2.5 rounded-full bg-gold px-[34px] py-4 font-sans text-sm font-semibold uppercase tracking-[0.12em] text-ink no-underline">
                 Download the free guide
               </a>
-              <a href="#guide" className="font-sans text-[13px] font-medium uppercase tracking-[0.1em] text-cream/72 no-underline">Explore pastor programs &rarr;</a>
+              <a href="#guide" className="font-sans text-[13px] font-medium uppercase tracking-[0.1em] text-cream/[72%] no-underline">Explore pastor programs &rarr;</a>
             </div>
             <p className="mt-[38px] max-w-[520px] border-t border-cream/10 pt-[30px] font-serif text-base italic leading-[1.5] text-cream/55">
               From the founding pastor of the fastest-growing church in America &mdash; 5 consecutive years &mdash; who works 45 hours a week and keeps date night every week.
             </p>
           </div>
-          <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-gold/24 shadow-[0_34px_66px_-22px_rgba(0,0,0,0.7)]">
+          <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-gold/[24%] shadow-[0_34px_66px_-22px_rgba(0,0,0,0.7)]">
             <img src={heroImg} alt="Mike with pastors / leading a room" className="h-full w-full object-cover" />
           </div>
         </div>
@@ -148,7 +148,7 @@ export default function Pastors() {
       {/* Trust bar */}
       <section className="border-y border-cream/[0.06] bg-ink-alt">
         <div className="mx-auto flex max-w-[1200px] flex-col items-center gap-[18px] px-8 py-[34px]">
-          <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.22em] text-cream/42">As seen on &amp; trusted by</span>
+          <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.22em] text-cream/[42%]">As seen on &amp; trusted by</span>
           <div className="flex flex-wrap items-center justify-center gap-x-[54px] gap-y-[22px]">
             <span className="font-sans text-[22px] font-bold tracking-[0.04em] text-cream/60">TBN</span>
             <span className="font-sans text-base font-semibold uppercase tracking-[0.04em] text-cream/55">Baker Books</span>
@@ -167,7 +167,7 @@ export default function Pastors() {
             <h2 className="mb-[22px] font-sans text-[36px] font-bold uppercase leading-none tracking-[0.005em] text-cream-solid sm:text-[48px]">
               One place. Every tool to break free.
             </h2>
-            <p className="font-serif text-lg leading-[1.64] text-cream/66">
+            <p className="font-serif text-lg leading-[1.64] text-cream/[66%]">
               A faith-based media and growth community where seekers, leaders, and pastors come together
               to go deeper &mdash; in Scripture, in identity, and in purpose.
             </p>
@@ -179,7 +179,7 @@ export default function Pastors() {
                 <path d="M7 11V7a5 5 0 0 1 9.9-1" />
               </svg>
               <h3 className="mb-3 mt-[26px] font-sans text-2xl font-bold uppercase tracking-[0.01em] text-cream-solid">Membership</h3>
-              <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/66">
+              <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/[66%]">
                 Teachings, tools, and a community of people serious about transformation &mdash; not just inspiration.
               </p>
               <Link to="/onboarding?tier=pastor" className="inline-flex w-fit items-center gap-2 rounded-full bg-gold px-6 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-ink no-underline">
@@ -192,7 +192,7 @@ export default function Pastors() {
                 <path d="M22 4h-7a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H22z" />
               </svg>
               <h3 className="mb-3 mt-[26px] font-sans text-2xl font-bold uppercase tracking-[0.01em] text-cream-solid">Courses &amp; Mentorship</h3>
-              <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/66">
+              <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/[66%]">
                 Structured programs that take you from knowing to actually living differently &mdash; breaking patterns, building a thriving life.
               </p>
               <Link to="/onboarding?tier=pastor" className="inline-flex w-fit items-center gap-2 rounded-full bg-gold px-6 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-ink no-underline">
@@ -205,7 +205,7 @@ export default function Pastors() {
                 <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
               </svg>
               <h3 className="mb-3 mt-[26px] font-sans text-2xl font-bold uppercase tracking-[0.01em] text-cream-solid">Events &amp; Experiences</h3>
-              <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/66">
+              <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/[66%]">
                 The Restore Conference. The Greece &amp; Turkey Biblical Tour. Experiences that change who you are.
               </p>
               <Link to="/events" className="inline-flex items-center gap-1.5 font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-gold no-underline">See all events &rarr;</Link>
@@ -264,7 +264,7 @@ export default function Pastors() {
               <div key={s.num} className="rounded-[14px] border border-gold/[0.14] bg-card p-[34px] transition-transform hover:-translate-y-1">
                 <div className="font-sans text-[15px] font-bold uppercase tracking-[0.1em] text-gold">{s.num}</div>
                 <h3 className="mb-3 mt-2.5 font-sans text-[23px] font-bold uppercase tracking-[0.02em] text-cream-solid">{s.title}</h3>
-                <p className="font-serif text-base leading-[1.62] text-cream/66">{s.desc}</p>
+                <p className="font-serif text-base leading-[1.62] text-cream/[66%]">{s.desc}</p>
               </div>
             ))}
           </div>
@@ -378,7 +378,7 @@ export default function Pastors() {
                 {NOT_FOR_LIST.map((item) => (
                   <div key={item} className="flex items-start gap-[13px]">
                     {XMARK}
-                    <span className="font-serif text-base leading-[1.5] text-cream/68">{item}</span>
+                    <span className="font-serif text-base leading-[1.5] text-cream/[68%]">{item}</span>
                   </div>
                 ))}
               </div>
@@ -422,12 +422,12 @@ export default function Pastors() {
             <h2 className="mb-[22px] font-sans text-[32px] font-bold uppercase leading-none tracking-[0.005em] text-cream-solid sm:text-[44px]">
               From Chaos to Clarity: No Turning Back
             </h2>
-            <p className="mb-4 font-serif text-lg leading-[1.66] text-cream/72">
+            <p className="mb-4 font-serif text-lg leading-[1.66] text-cream/[72%]">
               We live in a time when culture distracts us easily from stepping into a life of fullness through
               Christ. As the number of voices in our lives has increased, so has the chaos &mdash; and many of us
               feel powerless to commit to the singular aim of our existence.
             </p>
-            <p className="mb-[30px] font-serif text-lg leading-[1.66] text-cream/72">
+            <p className="mb-[30px] font-serif text-lg leading-[1.66] text-cream/[72%]">
               Drawing on his own journey and the lives of Joshua and Caleb, Mike shows how God uses your
               brokenness, fears, and shame to bring revival &mdash; so you can cut through the chaos and go after
               Jesus with all of your heart. Who you were a moment ago does not have to dictate who you are now.
@@ -481,7 +481,7 @@ export default function Pastors() {
           <h2 className="mb-4 font-sans text-[36px] font-bold uppercase leading-none tracking-[0.005em] text-cream-solid sm:text-[48px]">
             Get the free guide. Start building today.
           </h2>
-          <p className="mx-auto mb-2.5 max-w-[620px] font-serif text-lg leading-[1.6] text-cream/72">
+          <p className="mx-auto mb-2.5 max-w-[620px] font-serif text-lg leading-[1.6] text-cream/[72%]">
             10 Keys to Breaking the 200-Person Barrier &mdash; from the pastor who built the fastest-growing
             church in America five years running.
           </p>

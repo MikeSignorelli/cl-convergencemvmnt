@@ -107,7 +107,7 @@ export default function Onboarding() {
             <h1 className="mb-3 text-[34px] font-bold uppercase leading-[1.02] text-white">
               What brings you here?
             </h1>
-            <p className="mb-[30px] font-serif text-[16.5px] leading-[1.6] text-cream/72">
+            <p className="mb-[30px] font-serif text-[16.5px] leading-[1.6] text-cream/[72%]">
               Pick everything that applies. This shapes your daily content.
             </p>
             <div className="flex flex-wrap gap-2.5">
@@ -128,7 +128,7 @@ export default function Onboarding() {
             <h1 className="mb-3 text-[34px] font-bold uppercase leading-[1.02] text-white">
               Set your daily rhythm
             </h1>
-            <p className="mb-[30px] font-serif text-[16.5px] leading-[1.6] text-cream/72">
+            <p className="mb-[30px] font-serif text-[16.5px] leading-[1.6] text-cream/[72%]">
               When should we nudge you with your 3-minute daily reset?
             </p>
             <div className="flex flex-col gap-3">
@@ -168,7 +168,7 @@ export default function Onboarding() {
             <h1 className="mb-3 text-[34px] font-bold uppercase leading-[1.02] text-white">
               You&rsquo;re in, Sarah
             </h1>
-            <p className="mx-auto mb-[30px] max-w-[420px] font-serif text-[16.5px] leading-[1.6] text-cream/72">
+            <p className="mx-auto mb-[30px] max-w-[420px] font-serif text-[16.5px] leading-[1.6] text-cream/[72%]">
               Keep your streak alive — your daily reset takes 3 minutes, wherever you are.
             </p>
           </div>

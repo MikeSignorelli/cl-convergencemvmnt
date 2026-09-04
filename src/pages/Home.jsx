@@ -80,15 +80,15 @@ export default function Home() {
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(transparent_62%,rgba(10,13,7,0.55))]" />
         <div className="relative mx-auto grid max-w-[1200px] grid-cols-1 items-center gap-16 px-8 py-[104px] md:grid-cols-[1.32fr_1fr] md:pb-[116px]">
           <div>
-            <div className="mb-8 inline-flex gap-1.5 rounded-full border border-cream/12 bg-white/[0.04] p-[5px]">
+            <div className="mb-8 inline-flex gap-1.5 rounded-full border border-cream/[12%] bg-white/[0.04] p-[5px]">
               <span className="rounded-full bg-gold px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-ink">For Disciples</span>
-              <Link to="/leaders" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Leaders</Link>
-              <Link to="/pastors" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Pastors</Link>
+              <Link to="/leaders" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/[72%] no-underline">For Leaders</Link>
+              <Link to="/pastors" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/[72%] no-underline">For Pastors</Link>
             </div>
             <h1 className="mb-7 font-sans text-[42px] font-bold uppercase leading-[0.98] tracking-[0.005em] text-white sm:text-[50px]">
               Break Free From Inherited Patterns.
             </h1>
-            <p className="mb-10 max-w-[500px] font-serif text-lg leading-[1.62] text-cream/74 sm:text-[19px]">
+            <p className="mb-10 max-w-[500px] font-serif text-lg leading-[1.62] text-cream/[74%] sm:text-[19px]">
               A faith-based media and growth community for seekers ready to go deeper, breaking the
               patterns they were handed, rebuilding what God intended, and leaving a legacy that lasts
               beyond their lifetimes.
@@ -99,7 +99,7 @@ export default function Home() {
               </a>
             </div>
           </div>
-          <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-gold/24 shadow-[0_34px_66px_-22px_rgba(0,0,0,0.7)]">
+          <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-gold/[24%] shadow-[0_34px_66px_-22px_rgba(0,0,0,0.7)]">
             <img src={heroPhoto} alt="Mike Signorelli" className="h-full w-full object-cover" />
           </div>
         </div>
@@ -108,7 +108,7 @@ export default function Home() {
       {/* Trust bar */}
       <section className="border-y border-cream/[0.06] bg-ink-alt">
         <div className="mx-auto flex max-w-[1200px] flex-col items-center gap-[18px] px-8 py-[34px]">
-          <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.22em] text-cream/42">As seen on &amp; trusted by</span>
+          <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.22em] text-cream/[42%]">As seen on &amp; trusted by</span>
           <div className="flex flex-wrap items-center justify-center gap-x-[54px] gap-y-[22px]">
             <span className="font-sans text-[22px] font-bold tracking-[0.04em] text-cream/60">TBN</span>
             <span className="font-sans text-base font-semibold uppercase tracking-[0.04em] text-cream/55">Baker Books</span>
@@ -126,16 +126,16 @@ export default function Home() {
           <h2 className="mb-[34px] font-sans text-[36px] font-bold uppercase leading-none tracking-[0.005em] text-cream-solid sm:text-[50px]">
             You got saved. But the patterns didn&rsquo;t leave.
           </h2>
-          <p className="mb-[22px] font-serif text-[19px] leading-[1.72] text-cream/72">
+          <p className="mb-[22px] font-serif text-[19px] leading-[1.72] text-cream/[72%]">
             You gave your life to Jesus thinking the anger, the fear, the dysfunction would finally stop.
             But three years later, you&rsquo;re still getting triggered the same way.
           </p>
-          <p className="mb-14 font-serif text-[19px] leading-[1.72] text-cream/72">That&rsquo;s not a faith problem. That&rsquo;s a pattern problem.</p>
+          <p className="mb-14 font-serif text-[19px] leading-[1.72] text-cream/[72%]">That&rsquo;s not a faith problem. That&rsquo;s a pattern problem.</p>
           <p className="mb-14 font-serif text-2xl italic leading-[1.32] text-gold sm:text-[30px]">
             Salvation is instant.
             <br />Transformation is intentional.
           </p>
-          <p className="font-serif text-[19px] leading-[1.72] text-cream/72">
+          <p className="font-serif text-[19px] leading-[1.72] text-cream/[72%]">
             And most Christians are never given the tools to do the work. That&rsquo;s why <br />Convergence MVMNT exists.
           </p>
         </div>
@@ -149,7 +149,7 @@ export default function Home() {
             <h2 className="mb-[22px] font-sans text-[36px] font-bold uppercase leading-none tracking-[0.005em] text-cream-solid sm:text-[48px]">
               One place. Every tool to break free.
             </h2>
-            <p className="font-serif text-lg leading-[1.64] text-cream/66">
+            <p className="font-serif text-lg leading-[1.64] text-cream/[66%]">
               A faith-based media and growth community where seekers, leaders, and pastors come together
               to go deeper — in Scripture, in identity, and in purpose.
             </p>
@@ -161,7 +161,7 @@ export default function Home() {
                 <path d="M7 11V7a5 5 0 0 1 9.9-1" />
               </svg>
               <h3 className="mb-3 mt-[26px] font-sans text-2xl font-bold uppercase tracking-[0.01em] text-cream-solid">Membership</h3>
-              <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/66">
+              <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/[66%]">
                 Teachings, tools, and a community of people serious about transformation — not just inspiration.
               </p>
               <Link to="/onboarding" className="inline-flex w-fit items-center gap-2 rounded-full bg-gold px-6 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-ink no-underline">
@@ -174,7 +174,7 @@ export default function Home() {
                 <path d="M22 4h-7a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H22z" />
               </svg>
               <h3 className="mb-3 mt-[26px] font-sans text-2xl font-bold uppercase tracking-[0.01em] text-cream-solid">Courses &amp; Mentorship</h3>
-              <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/66">
+              <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/[66%]">
                 Structured programs that take you from knowing to actually living differently — breaking patterns, building a thriving life.
               </p>
               <Link to="/onboarding" className="inline-flex w-fit items-center gap-2 rounded-full bg-gold px-6 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-ink no-underline">
@@ -187,7 +187,7 @@ export default function Home() {
                 <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
               </svg>
               <h3 className="mb-3 mt-[26px] font-sans text-2xl font-bold uppercase tracking-[0.01em] text-cream-solid">Events &amp; Experiences</h3>
-              <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/66">
+              <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/[66%]">
                 The Restore Conference. The Greece &amp; Turkey Biblical Tour. Experiences that change who you are.
               </p>
               <a href="#events" className="inline-flex items-center gap-1.5 font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-gold no-underline">See all events →</a>
@@ -258,7 +258,7 @@ export default function Home() {
             <h2 className="mb-[22px] font-sans text-[34px] font-bold uppercase leading-none tracking-[0.005em] text-cream-solid sm:text-[46px]">
               The book that changes everything.
             </h2>
-            <p className="mb-[30px] font-serif text-lg leading-[1.68] text-cream/72">
+            <p className="mb-[30px] font-serif text-lg leading-[1.68] text-cream/[72%]">
               Mike&rsquo;s complete framework for breaking the generational patterns standing between who you are and
               who God created you to be — the practical, biblical roadmap for identifying what you inherited,
               renouncing what doesn&rsquo;t belong to you, and building daily disciplines that make freedom permanent.
@@ -283,12 +283,12 @@ export default function Home() {
             <h2 className="mb-[22px] font-sans text-[34px] font-bold uppercase leading-none tracking-[0.005em] text-cream-solid sm:text-[46px]">
               Have you reached the point of no return?
             </h2>
-            <p className="mb-[18px] font-serif text-lg leading-[1.68] text-cream/72">
+            <p className="mb-[18px] font-serif text-lg leading-[1.68] text-cream/[72%]">
               We live in a time when culture distracts us easily from stepping into a life of fullness through
               Christ. As the number of voices in our lives has increased, so has the chaos — and many of us
               feel powerless to commit to the singular aim of our existence.
             </p>
-            <p className="mb-[30px] font-serif text-lg leading-[1.68] text-cream/72">
+            <p className="mb-[30px] font-serif text-lg leading-[1.68] text-cream/[72%]">
               Drawing on his own journey and the lives of Joshua and Caleb, Mike shows how God uses your
               brokenness, fears, and shame to bring revival — so you can cut through the chaos and go after
               Jesus with all of your heart. Who you were a moment ago does not have to dictate who you are now.
@@ -321,7 +321,7 @@ export default function Home() {
             <h2 className="mb-[22px] font-sans text-[34px] font-bold uppercase leading-none tracking-[0.005em] text-cream-solid sm:text-[46px]">
               The most offended generation in history. There&rsquo;s an answer.
             </h2>
-            <p className="mb-[30px] font-serif text-lg leading-[1.68] text-cream/72">
+            <p className="mb-[30px] font-serif text-lg leading-[1.68] text-cream/[72%]">
               <em>Unoffendable Heart</em> — Mike&rsquo;s newest book with a foreword by the #1 author in Protestant
               Christianity — comes to Barnes &amp; Noble nationwide this October. Offense is the invisible chain
               holding millions of Christians back. This book is the antidote.
@@ -395,7 +395,7 @@ export default function Home() {
                 ].map((item) => (
                   <div key={item} className="flex items-start gap-[11px]">
                     {CHECKMARK}
-                    <span className="font-serif text-base text-cream/82">{item}</span>
+                    <span className="font-serif text-base text-cream/[82%]">{item}</span>
                   </div>
                 ))}
               </div>
@@ -453,7 +453,7 @@ export default function Home() {
         <div className="mx-auto max-w-[720px] px-8 text-center">
           <div className="mb-4 font-sans text-xs font-semibold uppercase tracking-[0.28em] text-gold">Free quiz</div>
           <h2 className="mb-5 font-sans text-[34px] font-bold uppercase leading-none tracking-[0.005em] text-cream-solid sm:text-[48px]">Not sure where to start?</h2>
-          <p className="mx-auto mb-2.5 max-w-[560px] font-serif text-lg leading-[1.62] text-cream/72">
+          <p className="mx-auto mb-2.5 max-w-[560px] font-serif text-lg leading-[1.62] text-cream/[72%]">
             Take the free Five-Fold Gift Quiz and discover your spiritual gift — and the generational
             patterns blocking you from walking in it fully.
           </p>

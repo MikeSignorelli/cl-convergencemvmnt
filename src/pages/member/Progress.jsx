@@ -160,7 +160,7 @@ export default function Progress() {
             </div>
             <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-gold">Badge earned</div>
             <div className="mb-2.5 text-[28px] font-bold uppercase leading-[1.05] text-white">Freedom Builder</div>
-            <p className="mb-[26px] font-serif text-[15px] leading-[1.6] text-cream/72">
+            <p className="mb-[26px] font-serif text-[15px] leading-[1.6] text-cream/[72%]">
               Fourteen straight days of showing up. You're not just watching — you're building.
             </p>
             <button

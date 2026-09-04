@@ -188,7 +188,7 @@ export default function Dashboard() {
         <main className="mx-auto w-full max-w-[1180px] flex-1 px-8 pb-16 pt-9">
           <div className="mb-[30px] flex flex-wrap items-center justify-between gap-5">
             <div>
-              <div className="mb-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.2em] text-cream/42">
+              <div className="mb-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.2em] text-cream/[42%]">
                 {todayLabel()}
               </div>
               <h1 className="m-0 font-sans text-[32px] font-bold uppercase leading-[1.04] tracking-[0.005em] text-white">
@@ -282,7 +282,7 @@ export default function Dashboard() {
                     <div className="mb-1 font-sans text-2xl font-bold uppercase leading-[1.05] text-white">
                       {t.course}
                     </div>
-                    <div className="font-serif text-[15.5px] text-cream/78">{t.episode}</div>
+                    <div className="font-serif text-[15.5px] text-cream/[78%]">{t.episode}</div>
                   </div>
                   <div
                     className="absolute bottom-[22px] right-6 flex h-[52px] w-[52px] items-center justify-center rounded-full shadow-[0_12px_28px_-8px_rgba(0,0,0,0.6)]"
@@ -372,7 +372,7 @@ export default function Dashboard() {
                           2h ago · Intensive
                         </span>
                       </div>
-                      <div className="font-serif text-[14.5px] leading-[1.5] text-cream/78">
+                      <div className="font-serif text-[14.5px] leading-[1.5] text-cream/[78%]">
                         "Day 12 of the intensive and I'm finally seeing breakthrough in my relationship with my father…"
                       </div>
                       <div className="mt-2 flex gap-4 font-sans text-[11.5px] font-semibold tracking-[0.06em] text-cream/45">
@@ -392,7 +392,7 @@ export default function Dashboard() {
                           5h ago · Open forum
                         </span>
                       </div>
-                      <div className="font-serif text-[14.5px] leading-[1.5] text-cream/78">
+                      <div className="font-serif text-[14.5px] leading-[1.5] text-cream/[78%]">
                         "Question for the group: How do you handle triggers at work?"
                       </div>
                       <div className="mt-2 flex gap-4 font-sans text-[11.5px] font-semibold tracking-[0.06em] text-cream/45">
@@ -448,7 +448,7 @@ export default function Dashboard() {
                     <span className="font-sans text-[30px] font-bold text-white">Day {freedomDay}</span>
                     <span className="font-sans text-sm font-medium text-cream/50">of 90</span>
                   </div>
-                  <div className="mb-3.5 font-serif text-[13.5px] text-cream/62">
+                  <div className="mb-3.5 font-serif text-[13.5px] text-cream/[62%]">
                     Phase 1 · Mapping your patterns
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-cream/10">

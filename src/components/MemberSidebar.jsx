@@ -140,7 +140,7 @@ function NavGroup({ title, items, active }) {
       {items.map((item) => {
         const isActive = item.to === active
         const className = `flex items-center gap-2.5 rounded-lg px-3 py-2.5 font-sans text-[13px] uppercase tracking-[0.09em] no-underline ${
-          isActive ? 'bg-gold/[0.13] font-semibold text-[#E9CF9C]' : 'font-medium text-cream/62 hover:text-cream'
+          isActive ? 'bg-gold/[0.13] font-semibold text-[#E9CF9C]' : 'font-medium text-cream/[62%] hover:text-cream'
         }`
         const content = (
           <>

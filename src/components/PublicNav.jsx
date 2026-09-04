@@ -43,7 +43,7 @@ const CTA = {
 
 function NavItem({ link }) {
   const className = `text-[13px] font-medium uppercase tracking-[0.12em] no-underline transition-colors ${
-    link.active ? 'text-cream-solid font-semibold' : 'text-cream/72 hover:text-cream-solid'
+    link.active ? 'text-cream-solid font-semibold' : 'text-cream/[72%] hover:text-cream-solid'
   }`
   if (link.to) {
     return (
@@ -75,7 +75,7 @@ export default function PublicNav({ page = '/' }) {
   return (
     <>
       {!dismissed && (
-        <div className="relative flex min-h-[44px] items-center justify-center bg-ink-deep px-6 py-2.5 text-center text-cream/82 pr-12">
+        <div className="relative flex min-h-[44px] items-center justify-center bg-ink-deep px-6 py-2.5 text-center text-cream/[82%] pr-12">
           <span className="font-sans text-[12.5px] font-medium uppercase tracking-[0.08em]">
             Unoffendable Heart — Mike&rsquo;s new book is available for pre-order&nbsp;
             <span className="text-gold">Reserve your copy →</span>
@@ -91,7 +91,7 @@ export default function PublicNav({ page = '/' }) {
           </button>
         </div>
       )}
-      <nav className="sticky top-0 z-50 h-[74px] border-b border-gold/[0.14] bg-ink/86 backdrop-blur-md">
+      <nav className="sticky top-0 z-50 h-[74px] border-b border-gold/[0.14] bg-ink/90 backdrop-blur-md">
         <div className="mx-auto flex h-full max-w-[1200px] items-center justify-between gap-6 px-8">
           <Link to="/" className="flex items-center gap-2.5 no-underline">
             <img src={logo} alt="Convergence MVMNT" className="block h-[55px] w-auto" />
@@ -106,14 +106,14 @@ export default function PublicNav({ page = '/' }) {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="cursor-pointer border-none bg-transparent p-0 font-sans text-[13px] font-medium uppercase tracking-[0.12em] text-cream/72 transition-colors hover:text-cream-solid"
+                className="cursor-pointer border-none bg-transparent p-0 font-sans text-[13px] font-medium uppercase tracking-[0.12em] text-cream/[72%] transition-colors hover:text-cream-solid"
               >
                 Logout
               </button>
             ) : (
               <Link
                 to="/login"
-                className="text-[13px] font-medium uppercase tracking-[0.12em] text-cream/72 no-underline transition-colors hover:text-cream-solid"
+                className="text-[13px] font-medium uppercase tracking-[0.12em] text-cream/[72%] no-underline transition-colors hover:text-cream-solid"
               >
                 Login
               </Link>

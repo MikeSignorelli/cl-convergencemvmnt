@@ -97,7 +97,7 @@ export default function ProfileStep({ onBack, onNext }) {
       <h1 className="mb-3 text-[34px] font-bold uppercase leading-[1.02] text-white">
         Set up your profile
       </h1>
-      <p className="mb-[30px] font-serif text-[16.5px] leading-[1.6] text-cream/72">
+      <p className="mb-[30px] font-serif text-[16.5px] leading-[1.6] text-cream/[72%]">
         This is how the community sees you.
       </p>
 

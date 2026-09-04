@@ -87,7 +87,7 @@ export default function Player() {
             </div>
 
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-[18px] pb-3 pt-3.5">
-              <div className="relative mb-2.5 h-1 rounded-full bg-white/22">
+              <div className="relative mb-2.5 h-1 rounded-full bg-white/[22%]">
                 <div className="h-full w-[38%] rounded-full bg-gold" />
                 <div className="absolute left-[38%] top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#E9CF9C]" />
               </div>

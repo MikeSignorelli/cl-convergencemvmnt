@@ -92,7 +92,7 @@ export default function CourseDetail() {
             </div>
             <h1 className="mb-3 text-[38px] font-bold uppercase leading-[1.02] text-white">{course.title}</h1>
             {course.description && (
-              <p className="mb-8 max-w-[640px] font-serif text-[16.5px] leading-[1.6] text-cream/78">
+              <p className="mb-8 max-w-[640px] font-serif text-[16.5px] leading-[1.6] text-cream/[78%]">
                 {course.description}
               </p>
             )}

@@ -99,7 +99,7 @@ export default function CourseLibrary() {
               <h1 className="mb-3.5 text-[38px] font-bold uppercase leading-[0.98] tracking-[0.005em] text-white">
                 Course Library
               </h1>
-              <p className="font-serif text-[16.5px] leading-[1.6] text-cream/78">
+              <p className="font-serif text-[16.5px] leading-[1.6] text-cream/[78%]">
                 Membership gets you access to the platform — each course is purchased individually.
               </p>
             </div>

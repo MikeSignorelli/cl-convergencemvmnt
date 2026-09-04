@@ -119,15 +119,15 @@ export default function Leaders() {
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(transparent_62%,rgba(10,13,7,0.55))]" />
         <div className="relative mx-auto grid max-w-[1200px] grid-cols-1 items-center gap-16 px-8 py-[104px] md:grid-cols-[1.32fr_1fr] md:pb-[116px]">
           <div>
-            <div className="mb-8 inline-flex gap-1.5 rounded-full border border-cream/12 bg-white/[0.04] p-[5px]">
-              <Link to="/" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Disciples</Link>
+            <div className="mb-8 inline-flex gap-1.5 rounded-full border border-cream/[12%] bg-white/[0.04] p-[5px]">
+              <Link to="/" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/[72%] no-underline">For Disciples</Link>
               <span className="rounded-full bg-gold px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-ink">For Leaders</span>
-              <Link to="/pastors" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/72 no-underline">For Pastors</Link>
+              <Link to="/pastors" className="inline-flex items-center rounded-full px-[18px] py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/[72%] no-underline">For Pastors</Link>
             </div>
             <h1 className="mb-[26px] font-sans text-[42px] font-bold uppercase leading-[0.98] tracking-[0.005em] text-cream-solid sm:text-[60px]">
               You built the life. <span className="text-gold">But something&rsquo;s still missing.</span>
             </h1>
-            <p className="mb-[38px] max-w-[540px] font-serif text-lg leading-[1.62] text-cream/74 sm:text-[19px]">
+            <p className="mb-[38px] max-w-[540px] font-serif text-lg leading-[1.62] text-cream/[74%] sm:text-[19px]">
               You&rsquo;ve got the profit — the company, the exits, the title. What you don&rsquo;t have is peace. The
               business runs; but your inner world, your marriage, your family tell a different story. Convergence
               MVMNT is a mindset, neuroscience, and spiritual transformation process for high-capacity leaders ready
@@ -137,14 +137,14 @@ export default function Leaders() {
               <Link to="/onboarding?tier=leader" className="inline-flex items-center gap-2.5 rounded-full bg-gold px-[34px] py-4 font-sans text-sm font-semibold uppercase tracking-[0.12em] text-ink no-underline">
                 Join the movement
               </Link>
-              <a href="#tour" className="font-sans text-[13px] font-medium uppercase tracking-[0.1em] text-cream/72 no-underline">Explore programs →</a>
+              <a href="#tour" className="font-sans text-[13px] font-medium uppercase tracking-[0.1em] text-cream/[72%] no-underline">Explore programs →</a>
             </div>
             <p className="mt-[38px] max-w-[520px] border-t border-cream/10 pt-[30px] font-serif text-base italic leading-[1.5] text-cream/55">
               For high-earning entrepreneurs and executives who have profit — but lack peace.
             </p>
           </div>
           <div className="relative">
-            <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-gold/24 shadow-[0_34px_66px_-22px_rgba(0,0,0,0.7)]">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-gold/[24%] shadow-[0_34px_66px_-22px_rgba(0,0,0,0.7)]">
               <img src={teachingImg} alt="Mike teaching at depth (study / on stage)" className="h-full w-full object-cover" />
             </div>
           </div>
@@ -154,7 +154,7 @@ export default function Leaders() {
       {/* Trust bar */}
       <section className="border-y border-cream/[0.06] bg-ink-alt">
         <div className="mx-auto flex max-w-[1200px] flex-col items-center gap-[18px] px-8 py-[34px]">
-          <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.22em] text-cream/42">As seen on &amp; trusted by</span>
+          <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.22em] text-cream/[42%]">As seen on &amp; trusted by</span>
           <div className="flex flex-wrap items-center justify-center gap-x-[54px] gap-y-[22px]">
             <span className="font-sans text-[22px] font-bold tracking-[0.04em] text-cream/60">TBN</span>
             <span className="font-sans text-base font-semibold uppercase tracking-[0.04em] text-cream/55">Baker Books</span>
@@ -173,7 +173,7 @@ export default function Leaders() {
             <h2 className="mb-[22px] font-sans text-[36px] font-bold uppercase leading-none tracking-[0.005em] text-cream-solid sm:text-[48px]">
               One place. Every tool to break free.
             </h2>
-            <p className="font-serif text-lg leading-[1.64] text-cream/66">
+            <p className="font-serif text-lg leading-[1.64] text-cream/[66%]">
               A faith-based media and growth community where seekers, leaders, and pastors come together
               to go deeper — in Scripture, in identity, and in purpose.
             </p>
@@ -183,7 +183,7 @@ export default function Leaders() {
               <div key={card.title} className="flex flex-col rounded-[14px] border border-gold/[0.14] bg-card px-[34px] py-10 transition-transform hover:-translate-y-1">
                 {card.icon}
                 <h3 className="mb-3 mt-[26px] font-sans text-2xl font-bold uppercase tracking-[0.01em] text-cream-solid">{card.title}</h3>
-                <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/66">{card.desc}</p>
+                <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/[66%]">{card.desc}</p>
                 {card.ctaLabel ? (
                   <Link to="/onboarding?tier=leader" className="inline-flex w-fit items-center gap-2 rounded-full bg-gold px-6 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-ink no-underline">
                     {card.ctaLabel}
@@ -220,7 +220,7 @@ export default function Leaders() {
               <div className="bg-ink px-8 py-[22px]">
                 <span className="font-sans text-[13px] font-semibold uppercase tracking-[0.1em] text-gold">Business education</span>
               </div>
-              <div className="border-l border-cream/12 bg-card px-8 py-[22px]">
+              <div className="border-l border-cream/[12%] bg-card px-8 py-[22px]">
                 <span className="font-sans text-[13px] font-semibold uppercase tracking-[0.1em] text-cream/70">Inner-life investment</span>
               </div>
             </div>
@@ -271,7 +271,7 @@ export default function Leaders() {
               </div>
             </div>
             <div className="bg-ink px-8 py-[26px] text-center">
-              <p className="font-serif text-lg leading-[1.5] text-cream/86">
+              <p className="font-serif text-lg leading-[1.5] text-cream/[86%]">
                 You&rsquo;ve invested <span className="font-sans text-[22px] font-bold text-gold">167×</span> more in
                 your success than your soul. Then you wonder why the wins feel hollow.
               </p>
@@ -300,7 +300,7 @@ export default function Leaders() {
               <div key={card.title} className="rounded-[14px] border border-gold/[0.14] bg-card px-[34px] py-10 transition-transform hover:-translate-y-1">
                 {card.icon}
                 <h3 className="mb-3 mt-[26px] font-sans text-[23px] font-bold uppercase tracking-[0.01em] text-cream-solid">{card.title}</h3>
-                <p className="font-serif text-base leading-[1.62] text-cream/66">{card.desc}</p>
+                <p className="font-serif text-base leading-[1.62] text-cream/[66%]">{card.desc}</p>
               </div>
             ))}
           </div>
@@ -387,10 +387,10 @@ export default function Leaders() {
             <h2 className="mb-[22px] font-sans text-[32px] font-bold uppercase leading-none tracking-[0.005em] text-cream-solid sm:text-[44px]">
               The next frontier: Unoffendable Heart
             </h2>
-            <p className="mb-4 font-serif text-lg leading-[1.66] text-cream/72">
+            <p className="mb-4 font-serif text-lg leading-[1.66] text-cream/[72%]">
               In business, offense kills partnerships, cultures, and opportunities. In faith, it&rsquo;s no different.
             </p>
-            <p className="mb-[30px] font-serif text-lg leading-[1.66] text-cream/72">
+            <p className="mb-[30px] font-serif text-lg leading-[1.66] text-cream/[72%]">
               Mike&rsquo;s new book — with a foreword by the #1 author in Protestant Christianity — examines how
               offense operates as a strategic weapon against high-performers who are <em>this close</em> to their
               breakthrough. Available October 2025, nationwide at Barnes &amp; Noble.
@@ -472,7 +472,7 @@ export default function Leaders() {
           <h2 className="mb-5 font-sans text-[36px] font-bold uppercase leading-none tracking-[0.005em] text-cream-solid sm:text-[48px]">
             Start with 5 minutes. Find where profit outran peace.
           </h2>
-          <p className="mx-auto mb-10 max-w-[600px] font-serif text-lg leading-[1.6] text-cream/72">
+          <p className="mx-auto mb-10 max-w-[600px] font-serif text-lg leading-[1.6] text-cream/[72%]">
             The Peace &amp; Performance Assessment maps your inner life across 5 dimensions — and shows you
             exactly where your success has outpaced your soul.
           </p>

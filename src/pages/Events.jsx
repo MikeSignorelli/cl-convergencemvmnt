@@ -108,7 +108,7 @@ export default function Events() {
           <h1 className="mb-[26px] font-sans text-[44px] font-bold uppercase leading-[0.96] tracking-[0.005em] text-cream-solid sm:text-[66px]">
             Events &amp; Experiences
           </h1>
-          <p className="mx-auto mb-[38px] max-w-[640px] font-serif text-xl leading-[1.6] text-cream/74">
+          <p className="mx-auto mb-[38px] max-w-[640px] font-serif text-xl leading-[1.6] text-cream/[74%]">
             Join Mike Signorelli at revival gatherings, conferences, and ministry tours throughout the year.
             These are powerful moments to connect, grow, and experience what God is doing — in person.
           </p>
@@ -116,7 +116,7 @@ export default function Events() {
             <a href="#upcoming" className="inline-flex items-center gap-2.5 rounded-full bg-gold px-[34px] py-4 font-sans text-sm font-semibold uppercase tracking-[0.12em] text-ink no-underline">
               See all events
             </a>
-            <a href="#tour" className="font-sans text-[13px] font-medium uppercase tracking-[0.1em] text-cream/72 no-underline">
+            <a href="#tour" className="font-sans text-[13px] font-medium uppercase tracking-[0.1em] text-cream/[72%] no-underline">
               The Greece &amp; Turkey tour →
             </a>
           </div>
@@ -190,7 +190,7 @@ export default function Events() {
                 <div className="flex-1">
                   <div className="mb-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/50">{ev.meta}</div>
                   <h3 className="mb-2.5 font-sans text-[23px] font-bold uppercase tracking-[0.01em] text-cream-solid">{ev.title}</h3>
-                  <p className="mb-4 font-serif text-base leading-[1.56] text-cream/66">{ev.desc}</p>
+                  <p className="mb-4 font-serif text-base leading-[1.56] text-cream/[66%]">{ev.desc}</p>
                   <a href={ev.href} target="_blank" rel="noopener" className="font-sans text-xs font-semibold uppercase tracking-[0.08em] text-gold no-underline">
                     View event →
                   </a>
@@ -199,7 +199,7 @@ export default function Events() {
             ))}
             <div className="flex flex-col items-start justify-center rounded-2xl border border-dashed border-gold/40 px-8 py-[34px]">
               <h3 className="mb-2.5 font-sans text-[23px] font-bold uppercase tracking-[0.01em] text-cream-solid">Invite Mike to your city</h3>
-              <p className="mb-[18px] font-serif text-base leading-[1.56] text-cream/66">
+              <p className="mb-[18px] font-serif text-base leading-[1.56] text-cream/[66%]">
                 Hosting a conference, revival, or leaders&rsquo; gathering? Request Mike for a speaking
                 engagement or ministry night.
               </p>
@@ -218,7 +218,7 @@ export default function Events() {
           <h2 className="mb-4 font-sans text-[34px] font-bold uppercase leading-none tracking-[0.005em] text-cream-solid sm:text-[48px]">
             Get event announcements first
           </h2>
-          <p className="mx-auto mb-9 max-w-[560px] font-serif text-lg leading-[1.6] text-cream/72">
+          <p className="mx-auto mb-9 max-w-[560px] font-serif text-lg leading-[1.6] text-cream/[72%]">
             New tour dates, conferences, and BRKRS Nights — sent to your inbox before they fill up.
           </p>
           <form className="mx-auto flex max-w-[560px] flex-wrap justify-center gap-3">

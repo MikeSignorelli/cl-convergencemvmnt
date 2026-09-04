@@ -179,15 +179,15 @@ export default function PublicFooter({ page = '/' }) {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3.5 border-t border-cream/10 py-6 pb-10">
-          <span className="font-serif text-sm text-cream/42">© 2026 Movement Network. All rights reserved.</span>
+          <span className="font-serif text-sm text-cream/[42%]">© 2026 Movement Network. All rights reserved.</span>
           <div className="flex gap-6">
-            <Link to="/" className="font-sans text-xs uppercase tracking-[0.06em] text-cream/42 no-underline hover:text-cream/70">
+            <Link to="/" className="font-sans text-xs uppercase tracking-[0.06em] text-cream/[42%] no-underline hover:text-cream/70">
               Privacy Policy
             </Link>
-            <Link to="/" className="font-sans text-xs uppercase tracking-[0.06em] text-cream/42 no-underline hover:text-cream/70">
+            <Link to="/" className="font-sans text-xs uppercase tracking-[0.06em] text-cream/[42%] no-underline hover:text-cream/70">
               Terms of Service
             </Link>
-            <Link to="/" className="font-sans text-xs uppercase tracking-[0.06em] text-cream/42 no-underline hover:text-cream/70">
+            <Link to="/" className="font-sans text-xs uppercase tracking-[0.06em] text-cream/[42%] no-underline hover:text-cream/70">
               Contact
             </Link>
           </div>

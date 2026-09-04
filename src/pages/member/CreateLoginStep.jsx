@@ -178,7 +178,7 @@ export default function CreateLoginStep({ tier, rhythm, picked, onBack }) {
         <h1 className="mb-3 text-[34px] font-bold uppercase leading-[1.02] text-white">
           Check your email
         </h1>
-        <p className="mx-auto mb-[10px] max-w-[420px] font-serif text-[16.5px] leading-[1.6] text-cream/72">
+        <p className="mx-auto mb-[10px] max-w-[420px] font-serif text-[16.5px] leading-[1.6] text-cream/[72%]">
           We sent a signup link to
         </p>
         <p className="mb-[30px] font-sans text-lg font-semibold text-gold">{sentTo}</p>
@@ -216,7 +216,7 @@ export default function CreateLoginStep({ tier, rhythm, picked, onBack }) {
       <h1 className="mb-3 text-[34px] font-bold uppercase leading-[1.02] text-white">
         Create your login
       </h1>
-      <p className="mb-[30px] font-serif text-[16.5px] leading-[1.6] text-cream/72">
+      <p className="mb-[30px] font-serif text-[16.5px] leading-[1.6] text-cream/[72%]">
         Sign up with Google, or we&rsquo;ll email you a link to set your password.
       </p>
 
