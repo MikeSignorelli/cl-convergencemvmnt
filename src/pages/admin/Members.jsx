@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
 import { useAuth } from '../../lib/AuthContext'
-import { listMembers, updateMember, deleteMember } from '../../lib/adminMembers'
+import { listMembers, deleteMember } from '../../lib/adminMembers'
 
 const TIER_FILTERS = ['all', 'disciple', 'leader', 'pastor', 'admin']
 const PREVIEW_TIERS = ['disciple', 'leader', 'pastor']
-const EDIT_TIERS = ['disciple', 'leader', 'pastor', 'admin']
 
 function TierBadge({ tier }) {
   const colors = {
@@ -27,6 +26,85 @@ function TierBadge({ tier }) {
   )
 }
 
+function BillingBadge({ status }) {
+  const colors = {
+    active: { bg: 'rgba(155,192,138,0.16)', text: '#9BC08A' },
+    pending: { bg: 'rgba(240,238,229,0.1)', text: 'rgba(240,238,229,0.6)' },
+    failed: { bg: 'rgba(216,136,138,0.16)', text: '#D8888A' },
+    cancelled: { bg: 'rgba(216,136,138,0.1)', text: 'rgba(216,136,138,0.7)' },
+  }
+  const c = colors[status] || colors.pending
+  return (
+    <span
+      className="rounded-full px-3 py-1 font-sans text-[10.5px] font-semibold uppercase tracking-[0.1em]"
+      style={{ background: c.bg, color: c.text }}
+    >
+      {status || 'pending'}
+    </span>
+  )
+}
+
+function MemberDetailPanel({ member, onClose, onDelete, busy }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6" onClick={onClose}>
+      <div
+        className="w-full max-w-[440px] rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] p-7"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-5 flex items-start justify-between">
+          <div>
+            <h2 className="m-0 font-sans text-xl font-bold uppercase text-white">
+              {member.display_name || member.username}
+            </h2>
+            <p className="mt-1 font-serif text-sm text-cream/55">@{member.username}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="cursor-pointer rounded-lg border-none bg-transparent p-1 text-cream/50 hover:text-cream"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-3.5 font-serif text-sm">
+          <div className="flex items-center justify-between border-b border-cream/[0.07] pb-3">
+            <span className="text-cream/50">Email</span>
+            <span className="text-cream">{member.email}</span>
+          </div>
+          <div className="flex items-center justify-between border-b border-cream/[0.07] pb-3">
+            <span className="text-cream/50">Tier</span>
+            <TierBadge tier={member.tier} />
+          </div>
+          <div className="flex items-center justify-between border-b border-cream/[0.07] pb-3">
+            <span className="text-cream/50">Billing status</span>
+            <BillingBadge status={member.subscription_status} />
+          </div>
+          <div className="flex items-center justify-between border-b border-cream/[0.07] pb-3">
+            <span className="text-cream/50">City</span>
+            <span className="text-cream">{member.city || '—'}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-cream/50">Joined</span>
+            <span className="text-cream">{new Date(member.created_at).toLocaleDateString()}</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onDelete(member)}
+          className="mt-6 w-full cursor-pointer rounded-full border border-[#D8888A]/30 bg-[#D8888A]/[0.08] px-5 py-2.5 font-sans text-[12px] font-semibold uppercase tracking-[0.08em] text-[#D8888A] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {busy ? 'Working…' : 'Delete account'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function Members() {
   const navigate = useNavigate()
   const { profile, setPreviewTier } = useAuth()
@@ -34,11 +112,9 @@ export default function Members() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('all')
-  const [editingId, setEditingId] = useState(null)
-  const [editTier, setEditTier] = useState('disciple')
-  const [editDisplayName, setEditDisplayName] = useState('')
-  const [rowError, setRowError] = useState('')
+  const [viewing, setViewing] = useState(null)
   const [busyId, setBusyId] = useState(null)
+  const [rowError, setRowError] = useState('')
 
   async function load() {
     setLoading(true)
@@ -62,31 +138,6 @@ export default function Members() {
     navigate('/dashboard')
   }
 
-  function startEdit(m) {
-    setRowError('')
-    setEditingId(m.id)
-    setEditTier(m.tier || 'disciple')
-    setEditDisplayName(m.display_name || '')
-  }
-
-  function cancelEdit() {
-    setEditingId(null)
-    setRowError('')
-  }
-
-  async function saveEdit(id) {
-    setBusyId(id)
-    setRowError('')
-    try {
-      await updateMember({ id, tier: editTier, displayName: editDisplayName.trim() || null })
-      setEditingId(null)
-      await load()
-    } catch (err) {
-      setRowError(err.message)
-    }
-    setBusyId(null)
-  }
-
   async function handleDelete(m) {
     const label = m.display_name || m.username || m.email
     if (!window.confirm(`Permanently delete ${label}'s account? This can't be undone.`)) return
@@ -94,6 +145,7 @@ export default function Members() {
     setRowError('')
     try {
       await deleteMember(m.id)
+      setViewing(null)
       await load()
     } catch (err) {
       setRowError(err.message)
@@ -160,8 +212,8 @@ export default function Members() {
                 <tr className="border-b border-cream/[0.09] bg-cream/[0.03]">
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Username</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Email</th>
-                  <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Display name</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Tier</th>
+                  <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Billing</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Joined</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Actions</th>
                 </tr>
@@ -191,83 +243,40 @@ export default function Members() {
                 {!loading &&
                   !error &&
                   visible.map((m) => {
-                    const isEditing = editingId === m.id
                     const isBusy = busyId === m.id
                     const isSelf = m.id === profile?.id
                     return (
                       <tr key={m.id} className="border-b border-cream/[0.06] last:border-b-0">
                         <td className="px-5 py-3.5 font-sans text-sm font-medium">{m.username || '—'}</td>
                         <td className="px-5 py-3.5 font-serif text-sm text-cream/75">{m.email}</td>
-                        <td className="px-5 py-3.5 font-serif text-sm text-cream/75">
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              value={editDisplayName}
-                              onChange={(e) => setEditDisplayName(e.target.value)}
-                              className="w-full rounded-md border border-cream/[0.18] bg-cream/[0.05] px-2.5 py-1.5 font-serif text-sm text-cream outline-none"
-                            />
-                          ) : (
-                            m.display_name || '—'
-                          )}
+                        <td className="px-5 py-3.5">
+                          <TierBadge tier={m.tier} />
                         </td>
                         <td className="px-5 py-3.5">
-                          {isEditing ? (
-                            <select
-                              value={editTier}
-                              onChange={(e) => setEditTier(e.target.value)}
-                              className="rounded-md border border-cream/[0.18] bg-[rgb(30,36,22)] px-2.5 py-1.5 font-sans text-[12px] uppercase tracking-[0.08em] text-cream outline-none"
-                            >
-                              {EDIT_TIERS.map((t) => (
-                                <option key={t} value={t}>{t}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <TierBadge tier={m.tier} />
-                          )}
+                          <BillingBadge status={m.subscription_status} />
                         </td>
                         <td className="px-5 py-3.5 font-serif text-sm text-cream/50">
                           {new Date(m.created_at).toLocaleDateString()}
                         </td>
                         <td className="px-5 py-3.5">
-                          {isEditing ? (
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                disabled={isBusy}
-                                onClick={() => saveEdit(m.id)}
-                                className="cursor-pointer rounded-full bg-gold px-3.5 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                {isBusy ? 'Saving…' : 'Save'}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={isBusy}
-                                onClick={cancelEdit}
-                                className="cursor-pointer rounded-full border border-cream/[0.18] bg-transparent px-3.5 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-cream/70"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => startEdit(m)}
-                                className="cursor-pointer rounded-full border border-cream/[0.18] bg-cream/[0.04] px-3.5 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-cream hover:border-gold/50"
-                              >
-                                Update
-                              </button>
-                              <button
-                                type="button"
-                                disabled={isBusy || isSelf}
-                                title={isSelf ? "You can't delete your own account" : undefined}
-                                onClick={() => handleDelete(m)}
-                                className="cursor-pointer rounded-full border border-[#D8888A]/30 bg-[#D8888A]/[0.08] px-3.5 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-[#D8888A] disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                {isBusy ? 'Working…' : 'Delete'}
-                              </button>
-                            </div>
-                          )}
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setViewing(m)}
+                              className="cursor-pointer rounded-full border border-cream/[0.18] bg-cream/[0.04] px-3.5 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-cream hover:border-gold/50"
+                            >
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isBusy || isSelf}
+                              title={isSelf ? "You can't delete your own account" : undefined}
+                              onClick={() => handleDelete(m)}
+                              className="cursor-pointer rounded-full border border-[#D8888A]/30 bg-[#D8888A]/[0.08] px-3.5 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-[#D8888A] disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {isBusy ? 'Working…' : 'Delete'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -277,6 +286,15 @@ export default function Members() {
           </div>
         </main>
       </div>
+
+      {viewing && (
+        <MemberDetailPanel
+          member={viewing}
+          onClose={() => setViewing(null)}
+          onDelete={handleDelete}
+          busy={busyId === viewing.id}
+        />
+      )}
     </div>
   )
 }

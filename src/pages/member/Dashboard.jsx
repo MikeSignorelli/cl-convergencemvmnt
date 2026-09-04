@@ -3,8 +3,81 @@ import { Link } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
 import { useAuth } from '../../lib/AuthContext'
+import { startMembershipCheckout } from '../../lib/billing'
 import continueWatchingImg from '../../assets/app-images/dashboard-continue-watching.jpg'
 import dailyResetImg from '../../assets/app-images/dashboard-daily-reset.jpg'
+
+const BILLING_LABELS = {
+  pending: 'Payment pending',
+  active: 'Active',
+  failed: 'Payment failed',
+  cancelled: 'Cancelled',
+}
+
+function PaymentStatusBadge({ status }) {
+  const colors = {
+    active: { bg: 'rgba(155,192,138,0.16)', text: '#9BC08A' },
+    pending: { bg: 'rgba(240,238,229,0.1)', text: 'rgba(240,238,229,0.6)' },
+    failed: { bg: 'rgba(216,136,138,0.16)', text: '#D8888A' },
+    cancelled: { bg: 'rgba(216,136,138,0.1)', text: 'rgba(216,136,138,0.7)' },
+  }
+  const c = colors[status] || colors.pending
+  return (
+    <span
+      className="rounded-full px-3.5 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.08em]"
+      style={{ background: c.bg, color: c.text }}
+    >
+      {BILLING_LABELS[status] || BILLING_LABELS.pending}
+    </span>
+  )
+}
+
+// Membership access requires an active subscription — courses are billed
+// separately (see CourseLibrary), but the dashboard itself is the
+// platform-access wall. Admins always pass through, since they don't hold
+// a real membership subscription.
+function PaymentWall({ status }) {
+  const [starting, setStarting] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleCheckout() {
+    setStarting(true)
+    setError('')
+    try {
+      await startMembershipCheckout()
+    } catch (err) {
+      setError(err.message || 'Could not start checkout. Please try again.')
+      setStarting(false)
+    }
+  }
+
+  const isFailed = status === 'failed' || status === 'cancelled'
+
+  return (
+    <main className="mx-auto flex w-full max-w-[560px] flex-1 flex-col items-center justify-center px-8 py-16 text-center">
+      <div className="mb-5">
+        <PaymentStatusBadge status={status} />
+      </div>
+      <h1 className="mb-3 font-sans text-[28px] font-bold uppercase leading-[1.05] text-white">
+        {isFailed ? 'Update your payment to continue' : 'Complete your membership'}
+      </h1>
+      <p className="mb-8 font-serif text-base leading-[1.6] text-cream/70">
+        {isFailed
+          ? 'Your last membership payment didn’t go through. Update billing to get back into your dashboard and courses.'
+          : 'Your dashboard, courses, and community unlock once your $49/mo membership payment is confirmed.'}
+      </p>
+      {error && <p className="mb-4 font-serif text-[13px] text-[#D8888A]">{error}</p>}
+      <button
+        type="button"
+        onClick={handleCheckout}
+        disabled={starting}
+        className="flex cursor-pointer items-center gap-2.5 rounded-full border-none bg-gold px-8 py-3.5 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {starting ? 'Redirecting…' : isFailed ? 'Update payment · $49/mo' : 'Join the movement · $49/mo'}
+      </button>
+    </main>
+  )
+}
 
 const TIERS = {
   disciple: {
@@ -98,12 +171,20 @@ export default function Dashboard() {
   const freedomDay = t.streak
   const freedomPctW = `${((t.streak / 90) * 100).toFixed(1)}%`
 
+  // Dashboard content is the membership paywall — admins always pass
+  // through (they don't hold a subscription), everyone else needs
+  // subscription_status === 'active' (see migration 0011 / Stripe webhook).
+  const hasPaidAccess = isAdmin || profile?.subscription_status === 'active'
+
   return (
     <div className="flex min-h-screen bg-ink font-sans text-cream">
       <MemberSidebar active="/dashboard" />
       <div className="flex flex-1 flex-col min-w-0">
         <MemberTopbar streak={t.streak} />
 
+        {!hasPaidAccess ? (
+          <PaymentWall status={profile?.subscription_status} />
+        ) : (
         <main className="mx-auto w-full max-w-[1180px] flex-1 px-8 pb-16 pt-9">
           <div className="mb-[30px] flex flex-wrap items-center justify-between gap-5">
             <div>
@@ -113,6 +194,11 @@ export default function Dashboard() {
               <h1 className="m-0 font-sans text-[32px] font-bold uppercase leading-[1.04] tracking-[0.005em] text-white">
                 Welcome back, {firstName}
               </h1>
+              {!isAdmin && (
+                <div className="mt-2">
+                  <PaymentStatusBadge status={profile?.subscription_status} />
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
@@ -455,6 +541,7 @@ export default function Dashboard() {
             </div>
           </div>
         </main>
+        )}
       </div>
     </div>
   )
