@@ -12,7 +12,6 @@ import Onboarding    from './pages/member/Onboarding'
 import SetPassword   from './pages/member/SetPassword'
 import ForgotPassword from './pages/member/ForgotPassword'
 import ResetPassword  from './pages/member/ResetPassword'
-import ChangePassword from './pages/member/ChangePassword'
 import CourseLibrary from './pages/member/CourseLibrary'
 import CourseDetail  from './pages/member/CourseDetail'
 import Player        from './pages/member/Player'
@@ -22,7 +21,6 @@ import UploadResources    from './pages/admin/UploadResources'
 import UploadCourses      from './pages/admin/UploadCourses'
 import UploadLiveSessions from './pages/admin/UploadLiveSessions'
 import Analytics          from './pages/admin/Analytics'
-import AdminProfile       from './pages/admin/AdminProfile'
 import AdminSettings      from './pages/admin/AdminSettings'
 
 export default function App() {
@@ -40,12 +38,10 @@ export default function App() {
         <Route path="/login"          element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password"  element={<ResetPassword />} />
-        <Route path="/account/password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
         <Route path="/dashboard"      element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/admin/members"  element={<RequireAuth adminOnly><Members /></RequireAuth>} />
         <Route path="/admin/courses" element={<RequireAuth adminOnly><UploadCourses /></RequireAuth>} />
         <Route path="/admin/analytics" element={<RequireAuth adminOnly><Analytics /></RequireAuth>} />
-        <Route path="/admin/profile"  element={<RequireAuth adminOnly><AdminProfile /></RequireAuth>} />
         <Route path="/admin/settings" element={<RequireAuth adminOnly><AdminSettings /></RequireAuth>} />
         <Route path="/courses"        element={<CourseLibrary />} />
         <Route path="/courses/:id"    element={<CourseDetail />} />
