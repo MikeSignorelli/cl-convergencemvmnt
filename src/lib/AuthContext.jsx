@@ -73,10 +73,20 @@ export function AuthProvider({ children }) {
         // profiles row — this app only grants access to members who
         // already have an account, so reject the session rather than
         // leaving them signed in with a blank profile.
+        //
+        // scope: 'local' matters here — the default ('global') revokes
+        // every session the user has server-side, not just this tab's. A
+        // real incident: someone mid-signup (a valid, in-progress session
+        // on /signup/complete deciding a password) separately tried
+        // Google from /login out of confusion. That second, profile-less
+        // session got rejected here as it should — but a global signOut
+        // also killed the refresh token behind their legitimate signup
+        // session, so it collapsed the moment they finally submitted,
+        // surfacing as "Auth session missing!" with no fault of its own.
         setProfile(null)
         setSession(null)
         setAuthError("This email isn't registered as a member. Please contact us, or join the movement to get access.")
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' })
         return
       }
       setProfile(p)
