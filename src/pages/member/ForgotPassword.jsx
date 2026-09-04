@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
-import { EMAIL_PATTERN, normalizeEmail } from '../../lib/onboardingSignup'
+import { EMAIL_PATTERN, normalizeEmail, checkEmailSignupStatus } from '../../lib/onboardingSignup'
 import logo from '../../assets/images/convergence-mvmnt.png'
 
 function Shell({ children }) {
@@ -35,9 +35,13 @@ export default function ForgotPassword() {
 
     setSubmitting(true)
     try {
-      // Supabase returns the same success response whether or not this
-      // email belongs to a real account — intentional, so this page never
-      // leaks account existence (same reasoning as startSignup's OTP send).
+      const status = await checkEmailSignupStatus(normalized)
+      if (!status.exists) {
+        setError('No account found for this email address.')
+        setSubmitting(false)
+        return
+      }
+
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(normalized, {
         redirectTo: `${window.location.origin}/reset-password`,
       })
@@ -62,11 +66,11 @@ export default function ForgotPassword() {
           </div>
           <h1 className="mb-3 text-[28px] font-bold uppercase leading-[1.05] text-white">Check your email</h1>
           <p className="mb-2 font-serif text-base leading-[1.6] text-cream/70">
-            If an account exists for
+            We sent a reset link to
           </p>
           <p className="mb-8 font-sans text-lg font-semibold text-gold">{normalizeEmail(email)}</p>
           <p className="mx-auto mb-8 max-w-[380px] font-serif text-sm leading-[1.6] text-cream/55">
-            you&rsquo;ll get a link to reset your password. It&rsquo;s valid for 24 hours and can only be used once.
+            It&rsquo;s valid for 24 hours and can only be used once.
           </p>
           <Link
             to="/login"
