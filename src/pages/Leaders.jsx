@@ -9,7 +9,7 @@ const CONVERGENCE_CARDS = [
   {
     title: 'Membership',
     desc: 'Teachings, tools, and a community of people serious about transformation — not just inspiration.',
-    footer: 'From $49/mo',
+    ctaLabel: 'Join the movement From $49/mo',
     icon: (
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#C2A064" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="11" width="18" height="11" rx="2" />
@@ -20,7 +20,7 @@ const CONVERGENCE_CARDS = [
   {
     title: 'Courses & Mentorship',
     desc: 'Structured programs that take you from knowing to actually living differently — breaking patterns, building a thriving life.',
-    footer: 'From $497',
+    ctaLabel: 'Join the movement From $497',
     icon: (
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#C2A064" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <path d="M2 4h7a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H2z" />
@@ -184,8 +184,10 @@ export default function Leaders() {
                 {card.icon}
                 <h3 className="mb-3 mt-[26px] font-sans text-2xl font-bold uppercase tracking-[0.01em] text-cream-solid">{card.title}</h3>
                 <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/66">{card.desc}</p>
-                {card.footer ? (
-                  <div className="font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-gold">{card.footer}</div>
+                {card.ctaLabel ? (
+                  <Link to="/onboarding?tier=leader" className="inline-flex w-fit items-center gap-2 rounded-full bg-gold px-6 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-ink no-underline">
+                    {card.ctaLabel}
+                  </Link>
                 ) : (
                   <Link to="/events" className="inline-flex items-center gap-1.5 font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-gold no-underline">See all events →</Link>
                 )}

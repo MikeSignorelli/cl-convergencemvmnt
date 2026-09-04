@@ -165,7 +165,7 @@ export default function Home() {
                 Teachings, tools, and a community of people serious about transformation — not just inspiration.
               </p>
               <Link to="/onboarding" className="inline-flex w-fit items-center gap-2 rounded-full bg-gold px-6 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-ink no-underline">
-                Join the movement
+                Join the movement From $49/mo
               </Link>
             </div>
             <div className="flex flex-col rounded-[14px] border border-gold/[0.14] bg-card p-[34px] transition-transform hover:-translate-y-1">
@@ -177,7 +177,9 @@ export default function Home() {
               <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/66">
                 Structured programs that take you from knowing to actually living differently — breaking patterns, building a thriving life.
               </p>
-              <div className="font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-gold">From $497</div>
+              <Link to="/onboarding" className="inline-flex w-fit items-center gap-2 rounded-full bg-gold px-6 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-ink no-underline">
+                Join the movement From $497
+              </Link>
             </div>
             <div className="flex flex-col rounded-[14px] border border-gold/[0.14] bg-card p-[34px] transition-transform hover:-translate-y-1">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#C2A064" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
