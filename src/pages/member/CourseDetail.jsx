@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import logo from '../../assets/images/convergence-mvmnt.png'
 import { fetchCourse } from '../../lib/courses'
 import { fetchCourseVideoUrl, formatPrice, startCourseCheckout } from '../../lib/billing'
+import { getVimeoEmbedUrl } from '../../lib/vimeo'
 import { useAuth } from '../../lib/AuthContext'
 
 function LockIcon() {
@@ -49,6 +50,7 @@ export default function CourseDetail() {
   }, [id])
 
   const unlocked = isAdmin || !!videoUrl
+  const vimeoEmbedUrl = videoUrl ? getVimeoEmbedUrl(videoUrl) : null
 
   async function handleBuy() {
     setBuying(true)
@@ -98,14 +100,22 @@ export default function CourseDetail() {
             )}
 
             {unlocked ? (
-              <div className="overflow-hidden rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)]">
-                <div className="flex aspect-video items-center justify-center bg-black">
-                  {videoUrl ? (
+              <div className="overflow-hidden rounded-cv-lg border border-cream/[0.09] bg-black">
+                <div className="aspect-video">
+                  {vimeoEmbedUrl ? (
+                    <iframe
+                      src={vimeoEmbedUrl}
+                      title={course.title}
+                      className="h-full w-full"
+                      allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
+                      allowFullScreen
+                    />
+                  ) : videoUrl ? (
                     <a
                       href={videoUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex flex-col items-center gap-3 text-cream/80 no-underline"
+                      className="flex h-full w-full flex-col items-center justify-center gap-3 text-cream/80 no-underline"
                     >
                       <svg width="52" height="52" viewBox="0 0 24 24" fill="#C2A064">
                         <path d="M8 5v14l11-7z" />
@@ -115,7 +125,9 @@ export default function CourseDetail() {
                       </span>
                     </a>
                   ) : (
-                    <span className="font-serif text-cream/50">This course doesn&rsquo;t have a video link set yet.</span>
+                    <span className="flex h-full w-full items-center justify-center font-serif text-cream/50">
+                      This course doesn&rsquo;t have a video link set yet.
+                    </span>
                   )}
                 </div>
               </div>

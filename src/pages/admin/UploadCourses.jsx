@@ -3,6 +3,7 @@ import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
 import { adminListCourses, createCourse, deleteCourse, uploadCourseThumbnail } from '../../lib/courses'
 import { formatPrice } from '../../lib/billing'
+import { getVimeoEmbedUrl } from '../../lib/vimeo'
 
 const TIERS = ['disciple', 'leader', 'pastor']
 
@@ -17,6 +18,7 @@ export default function UploadCourses() {
   const [thumbnail, setThumbnail] = useState(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const videoEmbedPreview = getVimeoEmbedUrl(videoUrl)
 
   async function refresh() {
     setLoading(true)
@@ -169,6 +171,30 @@ export default function UploadCourses() {
                   placeholder="https://vimeo.com/…"
                   className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none"
                 />
+                <p className="mt-1.5 font-serif text-[12px] text-cream/40">
+                  Vimeo links embed directly in the course page. If the video&rsquo;s Vimeo privacy settings
+                  restrict playback to specific domains, add this site there too.
+                </p>
+                {videoUrl.trim() && (
+                  <div className="mt-3 overflow-hidden rounded-[10px] border border-cream/[0.14] bg-black">
+                    <div className="aspect-video">
+                      {videoEmbedPreview ? (
+                        <iframe
+                          src={videoEmbedPreview}
+                          title="Video preview"
+                          className="h-full w-full"
+                          allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center px-4 text-center font-serif text-[13px] text-cream/40">
+                          Doesn&rsquo;t look like a Vimeo link — it will still save, but will show as an external
+                          link instead of an embedded player.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
