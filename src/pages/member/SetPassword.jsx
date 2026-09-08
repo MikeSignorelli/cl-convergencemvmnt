@@ -2,12 +2,81 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth, beginSignupCompletion, endSignupCompletion } from '../../lib/AuthContext'
-import { completeGoogleSignup, completeSignup, hasProfile, hasGoogleSignupStash } from '../../lib/onboardingSignup'
+import {
+  completeGoogleSignup,
+  completeSignup,
+  hasProfile,
+  hasGoogleSignupStash,
+  sendSignupEmail,
+  normalizeEmail,
+  EMAIL_PATTERN,
+} from '../../lib/onboardingSignup'
 import { seedOnboardingSession, PROFILE_STEP } from './useOnboardingSession'
 import { isCommonPassword } from '../../lib/commonPasswords'
 import logo from '../../assets/images/convergence-mvmnt.png'
 
 const MIN_PASSWORD_LENGTH = 12
+
+// Magic links are single-use by design (Supabase invalidates the code the
+// moment it's exchanged) — a dead link can't be made clickable again
+// without giving up that replay protection. What we *can* do is get a
+// fresh one out fast, without sending someone back to re-answer the whole
+// onboarding quiz: their username + answers are still sitting in
+// pending_onboarding under this email (see onboardingSignup.js), so
+// resending just needs the address, not a restart.
+function ResendLink({ defaultEmail }) {
+  const [email, setEmail] = useState(defaultEmail || '')
+  const [status, setStatus] = useState('idle') // 'idle' | 'sending' | 'sent' | 'error'
+  const [error, setError] = useState('')
+
+  async function handleResend(e) {
+    e.preventDefault()
+    const normalized = normalizeEmail(email)
+    if (!EMAIL_PATTERN.test(normalized)) {
+      setError('Enter a valid email address.')
+      return
+    }
+    setStatus('sending')
+    setError('')
+    try {
+      await sendSignupEmail(normalized)
+      setStatus('sent')
+    } catch (err) {
+      setStatus('error')
+      setError(err.message || 'Could not send a new link. Please try again.')
+    }
+  }
+
+  if (status === 'sent') {
+    return (
+      <p className="font-serif text-[13px] text-cream/60">
+        Sent — check <span className="text-cream">{email}</span> for a fresh link.
+      </p>
+    )
+  }
+
+  return (
+    <form onSubmit={handleResend} className="flex flex-col items-center gap-3">
+      {!defaultEmail && (
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@email.com"
+          className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] text-center font-serif text-[15px] text-cream outline-none"
+        />
+      )}
+      {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
+      <button
+        type="submit"
+        disabled={status === 'sending'}
+        className="inline-flex items-center gap-2.5 rounded-full bg-gold px-8 py-3.5 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {status === 'sending' ? 'Sending…' : defaultEmail ? `Resend link to ${defaultEmail}` : 'Send me a new link'}
+      </button>
+    </form>
+  )
+}
 
 function getUrlError() {
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
@@ -51,6 +120,11 @@ export default function SetPassword() {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // Captured the moment we have a live session, so that if it dies later
+  // (mid-form, on submit) we can offer "resend to this address" without
+  // making the user retype it — see ResendLink.
+  const [knownEmail, setKnownEmail] = useState('')
+  const [sessionDiedMidForm, setSessionDiedMidForm] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -84,7 +158,7 @@ export default function SetPassword() {
           setTimeout(() => {
             sub.subscription.unsubscribe()
             resolvePromise(null)
-          }, 5000)
+          }, 8000)
         })
       }
 
@@ -107,6 +181,7 @@ export default function SetPassword() {
         setStatus('expired')
         return
       }
+      if (userCheck.user.email) setKnownEmail(userCheck.user.email)
 
       // Someone clicked a sign-in link for an email that's already a full
       // member (see startSignup's comment on why we can't distinguish this
@@ -168,6 +243,7 @@ export default function SetPassword() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    setSessionDiedMidForm(false)
 
     if (password.length < MIN_PASSWORD_LENGTH) {
       setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`)
@@ -193,6 +269,7 @@ export default function SetPassword() {
       navigate('/onboarding', { replace: true })
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.')
+      if (err.message?.includes('session expired')) setSessionDiedMidForm(true)
       setSubmitting(false)
     } finally {
       endSignupCompletion()
@@ -241,14 +318,14 @@ export default function SetPassword() {
       <Shell>
         <StatusMessage
           title="Link no longer valid"
-          body="This signup link has expired or has already been used. Start over to get a fresh one."
+          body="This signup link has expired or has already been used — but your progress is saved. Get a fresh link sent to the same email to pick up right where you left off."
         >
-          <Link
-            to="/onboarding"
-            className="inline-flex items-center gap-2.5 rounded-full bg-gold px-8 py-3.5 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink no-underline"
-          >
-            Back to onboarding
-          </Link>
+          <div className="flex flex-col items-center gap-4">
+            <ResendLink defaultEmail={knownEmail} />
+            <Link to="/onboarding" className="font-sans text-[12px] font-semibold uppercase tracking-[0.1em] text-cream/50 no-underline">
+              Or start over from onboarding
+            </Link>
+          </div>
         </StatusMessage>
       </Shell>
     )
@@ -308,6 +385,11 @@ export default function SetPassword() {
         </div>
 
         {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
+        {sessionDiedMidForm && (
+          <div className="rounded-[10px] border border-cream/[0.09] bg-cream/[0.03] px-4 py-4">
+            <ResendLink defaultEmail={knownEmail} />
+          </div>
+        )}
 
         <button
           type="submit"

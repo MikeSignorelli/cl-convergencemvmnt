@@ -114,8 +114,19 @@ export async function completeSignup({ password }) {
   // in). getUser() forces a round trip to Auth to confirm the session is
   // still actually live, so a dead session fails here with a clear message
   // instead of updateUser() throwing the opaque "Auth session missing!".
-  const { data: userCheck, error: userCheckError } = await supabase.auth.getUser()
-  if (userCheckError || !userCheck?.user) {
+  //
+  // One retry before giving up: this fired right after the SetPassword
+  // page's own getUser() already confirmed the session was live, so a
+  // failure here just seconds later is far more often a single slow/flaky
+  // network round trip than a session that genuinely died in that window —
+  // and misreporting the former as "your session expired" sends someone
+  // through a whole fresh signup link for nothing.
+  let userCheck = await supabase.auth.getUser()
+  if (userCheck.error || !userCheck.data?.user) {
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    userCheck = await supabase.auth.getUser()
+  }
+  if (userCheck.error || !userCheck.data?.user) {
     throw new Error('Your session expired while this was open. Please restart signup to get a fresh link.')
   }
 
