@@ -50,6 +50,17 @@ export async function checkEmailSignupStatus(email) {
 // instead of a signup-confirmation link, and SetPassword detects that case
 // after they click it (see completeSignup / the "already-member" check).
 export async function startSignup({ username, email, answers }) {
+  // Someone who clicked "Continue with Google" and then backed out (or the
+  // OAuth round trip just never came back) leaves a stash sitting in
+  // localStorage for up to GOOGLE_SIGNUP_MAX_AGE_MS — see stashGoogleSignup.
+  // Submitting the email form is an explicit choice to use this path
+  // instead, so that stash is now stale and must not be allowed to hijack
+  // this (or any later) magic-link click on /signup/complete: without this,
+  // clicking the just-emailed link would silently skip the password step
+  // and create the profile from the OLD stashed username instead of the one
+  // just entered here (see SetPassword's hasGoogleSignupStash check).
+  clearGoogleSignupStash()
+
   // Routed through a security-definer RPC rather than a direct table upsert:
   // Postgres RLS requires SELECT-visibility into any conflicting row to plan
   // an `ON CONFLICT DO UPDATE`, which is incompatible with locking pending
@@ -169,6 +180,13 @@ function popGoogleSignup() {
   return parsed
 }
 
+// Invalidates a stash from an abandoned "Continue with Google" attempt —
+// see startSignup, which calls this the moment someone commits to the email
+// path instead.
+export function clearGoogleSignupStash() {
+  localStorage.removeItem(GOOGLE_SIGNUP_KEY)
+}
+
 // Non-destructive check for "did THIS browser just come back from a
 // Google signup redirect we initiated". This is the reliable signal for
 // routing /signup/complete — session.user.app_metadata.provider is NOT:
@@ -195,6 +213,16 @@ export async function completeGoogleSignup(user) {
     .from('profiles')
     .insert({ id: user.id, username: stashed.username, tier: stashed.answers?.tier ?? null })
   if (profileError && profileError.code !== '23505') throw profileError
+
+  // Mirror image of the stash problem above: if this same email previously
+  // started (but never finished) the email/password path, it left a row in
+  // pending_onboarding reserving whatever username was picked there. That
+  // path is moot now that Google just completed the signup, and left
+  // behind it'd permanently block that username for anyone (pending rows
+  // aren't cleaned up by anything else once the account behind them exists).
+  if (user.email) {
+    await supabase.from('pending_onboarding').delete().eq('email', user.email)
+  }
 
   return { user, answers: stashed.answers }
 }
