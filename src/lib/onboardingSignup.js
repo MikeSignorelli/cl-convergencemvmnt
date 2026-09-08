@@ -91,6 +91,44 @@ export async function sendSignupEmail(email) {
     }
     throw error
   }
+  markSignupPending(email)
+}
+
+const SIGNUP_PENDING_KEY = 'onboarding_signup_pending'
+const SIGNUP_PENDING_MAX_AGE_MS = 24 * 60 * 60 * 1000 // matches the link's own stated 24h validity
+
+// The "Check your email" screen (CreateLoginStep) commonly stays open in
+// its own tab while the real click happens in a second tab (or a second
+// device that hands off to the same browser) — and localStorage-backed
+// auth state is shared across every tab on this origin. The moment the
+// magic link is exchanged, AuthContext's own onAuthStateChange listener
+// fires in *every* open tab, including that idle first one — which sees
+// "authenticated, no profile row yet" and, with nothing to tell it
+// otherwise, signs the brand-new session back out from under the second
+// tab before the password screen there ever gets submitted (see
+// AuthContext's syncSession). A localStorage flag is the only signal that
+// reaches every tab: it's what lets that idle tab recognize its own
+// in-flight signup and hold off, rather than the in-memory
+// signupCompleting flag or a pathname check, which only protect the one
+// tab that's actually on /signup/complete.
+function markSignupPending(email) {
+  localStorage.setItem(SIGNUP_PENDING_KEY, JSON.stringify({ email, stashedAt: Date.now() }))
+}
+
+export function isSignupPendingFor(email) {
+  const raw = localStorage.getItem(SIGNUP_PENDING_KEY)
+  if (!raw) return false
+  try {
+    const parsed = JSON.parse(raw)
+    if (Date.now() - parsed.stashedAt > SIGNUP_PENDING_MAX_AGE_MS) return false
+    return parsed.email === email
+  } catch {
+    return false
+  }
+}
+
+export function clearSignupPending() {
+  localStorage.removeItem(SIGNUP_PENDING_KEY)
 }
 
 export async function fetchPendingOnboarding(email) {
@@ -115,12 +153,14 @@ export async function completeSignup({ password }) {
   // still actually live, so a dead session fails here with a clear message
   // instead of updateUser() throwing the opaque "Auth session missing!".
   //
-  // One retry before giving up: this fired right after the SetPassword
-  // page's own getUser() already confirmed the session was live, so a
-  // failure here just seconds later is far more often a single slow/flaky
-  // network round trip than a session that genuinely died in that window —
-  // and misreporting the former as "your session expired" sends someone
-  // through a whole fresh signup link for nothing.
+  // One retry before giving up, mostly as insurance against a plain slow/
+  // flaky network round trip — the real cause of this firing shortly after
+  // SetPassword's own getUser() just confirmed the session was live is
+  // almost always the cross-tab race markSignupPending() now guards
+  // against (see onAuthStateChange in AuthContext): a leftover "Check your
+  // email" tab reacting to this exact session and signing it out before
+  // this call ever runs. Misreporting either case as "your session
+  // expired" sends someone through a whole fresh signup link for nothing.
   let userCheck = await supabase.auth.getUser()
   if (userCheck.error || !userCheck.data?.user) {
     await new Promise((resolve) => setTimeout(resolve, 1500))
@@ -152,6 +192,7 @@ export async function completeSignup({ password }) {
   if (profileError && profileError.code !== '23505') throw profileError
 
   await supabase.from('pending_onboarding').delete().eq('email', email)
+  clearSignupPending()
 
   return { user, answers: pending.answers }
 }

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
+import { isSignupPendingFor } from './onboardingSignup'
 
 const AuthContext = createContext(null)
 
@@ -62,10 +63,23 @@ export function AuthProvider({ children }) {
       if (!p) {
         // Signup (magic-link or Google) creates the profiles row itself —
         // don't yank the session out from under it while that's in
-        // progress. Pathname is a secondary guard for the common case;
-        // signupCompleting covers the async race around the route change
-        // to /onboarding once it succeeds (see comment above).
-        if (signupCompleting || window.location.pathname === '/signup/complete') {
+        // progress. Pathname and signupCompleting only protect the ONE tab
+        // actually doing the signup, though: the "Check your email" screen
+        // routinely stays open in a first tab while the real magic-link
+        // click happens in a second one, and localStorage-backed auth state
+        // is shared across every tab on this origin — the instant that
+        // second tab's session exists, THIS effect fires here too, in the
+        // idle first tab, which has neither of those two signals set.
+        // Without a signal that reaches every tab, that idle tab would
+        // reject its own signup as invalid and sign it out from under the
+        // second tab before the password screen there ever gets submitted
+        // (see markSignupPending / isSignupPendingFor in onboardingSignup.js,
+        // the same shape as the Google stash below).
+        if (
+          signupCompleting ||
+          window.location.pathname === '/signup/complete' ||
+          isSignupPendingFor(nextSession.user.email)
+        ) {
           setProfile(null)
           return
         }
