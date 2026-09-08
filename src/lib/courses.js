@@ -13,15 +13,26 @@ export async function uploadCourseThumbnail(file) {
   return { path, publicUrl: data.publicUrl }
 }
 
-export async function createCourse({ title, description, visibleTiers, thumbnailPath, videoUrl, priceCents }) {
+export async function createCourse({
+  title,
+  description,
+  category,
+  durationLabel,
+  featured,
+  visibleTiers,
+  thumbnailPath,
+  videoUrl,
+}) {
   const { data: userData } = await supabase.auth.getUser()
   const { error } = await supabase.from('courses').insert({
     title,
     description: description || null,
+    category: category || null,
+    duration_label: durationLabel || null,
+    featured: !!featured,
     visible_tiers: visibleTiers,
     thumbnail_path: thumbnailPath || null,
     video_url: videoUrl,
-    price_cents: priceCents || 0,
     created_by: userData.user?.id ?? null,
   })
   if (error) throw error
@@ -29,13 +40,14 @@ export async function createCourse({ title, description, visibleTiers, thumbnail
 
 // Deliberately excludes video_url: browsing is open to every member (see
 // migration 0011's courses SELECT policy), but the actual video is only
-// ever fetched through get_course_video_url() once purchase is confirmed
-// (see billing.js's fetchCourseVideoUrl) — selecting it here would leak
-// unpurchased content straight past that gate.
+// ever fetched through get_course_video_url() once the member's tier +
+// active membership are confirmed (see billing.js's fetchCourseVideoUrl,
+// migration 0013) — selecting it here would leak locked content straight
+// past that gate.
 export async function listCourses() {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, title, description, visible_tiers, thumbnail_path, price_cents, created_at')
+    .select('id, title, description, category, duration_label, featured, visible_tiers, thumbnail_path, created_at')
     .order('created_at', { ascending: false })
   if (error) throw error
   return data || []
@@ -52,7 +64,7 @@ export async function adminListCourses() {
 export async function fetchCourse(id) {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, title, description, thumbnail_path, price_cents, created_at')
+    .select('id, title, description, category, duration_label, visible_tiers, thumbnail_path, created_at')
     .eq('id', id)
     .maybeSingle()
   if (error) throw error

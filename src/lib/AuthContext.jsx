@@ -23,7 +23,7 @@ export function endSignupCompletion() {
 async function fetchProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username, display_name, tier, avatar_url')
+    .select('id, username, display_name, tier, avatar_url, subscription_status')
     .eq('id', userId)
     .maybeSingle()
   if (error) throw error

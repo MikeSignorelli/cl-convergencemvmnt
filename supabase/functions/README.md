@@ -27,10 +27,8 @@ every Edge Function — no need to set those yourself.
 ## 3. Create the Stripe objects
 
 - A recurring **Price** for the $49/mo membership → its id is
-  `STRIPE_MEMBERSHIP_PRICE_ID` above.
-- A one-time **Price** per paid course, then set that course's
-  `stripe_price_id` column (via the admin Upload Courses page, once that
-  field is exposed there, or directly via SQL) to match.
+  `STRIPE_MEMBERSHIP_PRICE_ID` above. Every course is included in this one
+  membership (see migration 0013) — there's no per-course Price to create.
 
 ## 4. Point a Stripe webhook at the deployed function
 
@@ -42,8 +40,8 @@ https://<project-ref>.supabase.co/functions/v1/stripe-webhook
 
 Subscribe it to at least: `checkout.session.completed`,
 `customer.subscription.updated`, `customer.subscription.deleted`,
-`invoice.payment_failed`, `payment_intent.payment_failed`. Copy the
-endpoint's signing secret into `STRIPE_WEBHOOK_SECRET` above.
+`invoice.payment_failed`. Copy the endpoint's signing secret into
+`STRIPE_WEBHOOK_SECRET` above.
 
 ## 5. Test before going live
 
@@ -52,6 +50,5 @@ stripe listen --forward-to https://<project-ref>.supabase.co/functions/v1/stripe
 stripe trigger checkout.session.completed
 ```
 
-Once this is done, `src/lib/billing.js`'s `startMembershipCheckout()` and
-`startCourseCheckout()` will work exactly as written — nothing in the
-frontend needs to change.
+Once this is done, `src/lib/billing.js`'s `startMembershipCheckout()` will
+work exactly as written — nothing in the frontend needs to change.

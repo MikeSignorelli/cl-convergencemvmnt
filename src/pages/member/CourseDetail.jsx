@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import logo from '../../assets/images/convergence-mvmnt.png'
+import PaymentWall from '../../components/PaymentWall'
 import { fetchCourse } from '../../lib/courses'
-import { fetchCourseVideoUrl, formatPrice, startCourseCheckout } from '../../lib/billing'
+import { fetchCourseVideoUrl } from '../../lib/billing'
 import { useAuth } from '../../lib/AuthContext'
 
 function LockIcon() {
@@ -16,13 +17,11 @@ function LockIcon() {
 
 export default function CourseDetail() {
   const { id } = useParams()
-  const { isAdmin } = useAuth()
+  const { profile, isAdmin } = useAuth()
   const [course, setCourse] = useState(null)
   const [videoUrl, setVideoUrl] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [buying, setBuying] = useState(false)
-  const [buyError, setBuyError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -48,17 +47,15 @@ export default function CourseDetail() {
     }
   }, [id])
 
+  // Every course is included in the single membership — the video itself
+  // only ever comes back from get_course_video_url() (see billing.js) once
+  // the member's tier + active subscription are confirmed server-side
+  // (migration 0013), so a truthy videoUrl is the real unlock signal here.
+  const hasPaidAccess = isAdmin || profile?.subscription_status === 'active'
   const unlocked = isAdmin || !!videoUrl
 
-  async function handleBuy() {
-    setBuying(true)
-    setBuyError('')
-    try {
-      await startCourseCheckout(id)
-    } catch (err) {
-      setBuyError(err.message || 'Could not start checkout. Please try again.')
-      setBuying(false)
-    }
+  if (!loading && !error && course && !hasPaidAccess) {
+    return <PaymentWall status={profile?.subscription_status} />
   }
 
   return (
@@ -85,10 +82,15 @@ export default function CourseDetail() {
 
         {!loading && !error && course && (
           <>
-            <div className="mb-3.5 flex items-center gap-2.5">
+            <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
               <span className="rounded-full border border-gold/35 bg-gold/[0.16] px-[13px] py-[5px] font-sans text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#E9CF9C]">
-                {unlocked ? 'Unlocked' : formatPrice(course.price_cents)}
+                {unlocked ? 'Included' : 'Locked'}
               </span>
+              {(course.category || course.duration_label) && (
+                <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/55">
+                  {[course.category, course.duration_label].filter(Boolean).join(' · ')}
+                </span>
+              )}
             </div>
             <h1 className="mb-3 text-[38px] font-bold uppercase leading-[1.02] text-white">{course.title}</h1>
             {course.description && (
@@ -126,21 +128,14 @@ export default function CourseDetail() {
                 </div>
                 <div>
                   <h2 className="mb-1.5 font-sans text-lg font-bold uppercase text-white">
-                    Purchase to unlock this course
+                    Not included in your membership tier
                   </h2>
                   <p className="font-serif text-sm text-cream/60">
-                    One-time purchase — yours to keep, separate from your membership.
+                    {course.visible_tiers?.length
+                      ? `This course is reserved for ${course.visible_tiers.join('/')} tier members.`
+                      : 'This course is reserved for a different membership tier than yours.'}
                   </p>
                 </div>
-                {buyError && <p className="font-serif text-[13px] text-[#D8888A]">{buyError}</p>}
-                <button
-                  type="button"
-                  onClick={handleBuy}
-                  disabled={buying}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-full border-none bg-gold px-8 py-3.5 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {buying ? 'Redirecting…' : `Buy course · ${formatPrice(course.price_cents)}`}
-                </button>
               </div>
             )}
           </>

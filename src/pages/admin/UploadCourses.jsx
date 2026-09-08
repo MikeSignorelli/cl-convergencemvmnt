@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
 import { adminListCourses, createCourse, deleteCourse, uploadCourseThumbnail } from '../../lib/courses'
-import { formatPrice } from '../../lib/billing'
 
 const TIERS = ['disciple', 'leader', 'pastor']
 
@@ -11,9 +10,11 @@ export default function UploadCourses() {
   const [loading, setLoading] = useState(true)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [category, setCategory] = useState('')
+  const [durationLabel, setDurationLabel] = useState('')
+  const [featured, setFeatured] = useState(false)
   const [visibleTiers, setVisibleTiers] = useState(TIERS)
   const [videoUrl, setVideoUrl] = useState('')
-  const [price, setPrice] = useState('')
   const [thumbnail, setThumbnail] = useState(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -66,17 +67,21 @@ export default function UploadCourses() {
       await createCourse({
         title: title.trim(),
         description: description.trim(),
+        category: category.trim(),
+        durationLabel: durationLabel.trim(),
+        featured,
         visibleTiers,
         thumbnailPath,
         videoUrl: videoUrl.trim(),
-        priceCents: Math.round(parseFloat(price || '0') * 100) || 0,
       })
 
       setTitle('')
       setDescription('')
+      setCategory('')
+      setDurationLabel('')
+      setFeatured(false)
       setVisibleTiers(TIERS)
       setVideoUrl('')
-      setPrice('')
       setThumbnail(null)
       await refresh()
     } catch (err) {
@@ -134,6 +139,38 @@ export default function UploadCourses() {
               />
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
+                  Category
+                </label>
+                <input
+                  type="text"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  placeholder="Freedom & Healing"
+                  className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
+                  Duration / episodes (optional)
+                </label>
+                <input
+                  type="text"
+                  value={durationLabel}
+                  onChange={(e) => setDurationLabel(e.target.value)}
+                  placeholder="12 weeks · 36 episodes"
+                  className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none"
+                />
+              </div>
+            </div>
+
+            <label className="flex w-fit cursor-pointer items-center gap-2.5 font-serif text-[13.5px] text-cream/70">
+              <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
+              Feature this course in the library's hero banner
+            </label>
+
             <div>
               <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
                 Visible to
@@ -183,24 +220,6 @@ export default function UploadCourses() {
               </div>
             </div>
 
-            <div>
-              <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
-                Price (USD, one-time purchase — 0 for free)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="497.00"
-                className="w-full max-w-[200px] rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none"
-              />
-              <p className="mt-1.5 font-serif text-[12px] text-cream/40">
-                Sets the price shown to members. Also requires a matching Stripe Price — see supabase/functions/README.md — before real checkout will work.
-              </p>
-            </div>
-
             {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
 
             <button
@@ -217,7 +236,7 @@ export default function UploadCourses() {
               <thead>
                 <tr className="border-b border-cream/[0.09] bg-cream/[0.03]">
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Title</th>
-                  <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Price</th>
+                  <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Category</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Visible to</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Video</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50" />
@@ -237,8 +256,15 @@ export default function UploadCourses() {
                 {!loading &&
                   courses.map((c) => (
                     <tr key={c.id} className="border-b border-cream/[0.06] last:border-b-0">
-                      <td className="px-5 py-3.5 font-sans text-sm font-medium">{c.title}</td>
-                      <td className="px-5 py-3.5 font-serif text-sm text-gold">{formatPrice(c.price_cents)}</td>
+                      <td className="px-5 py-3.5 font-sans text-sm font-medium">
+                        {c.title}
+                        {c.featured && (
+                          <span className="ml-2 rounded-full bg-gold/[0.16] px-2 py-0.5 font-sans text-[9.5px] font-semibold uppercase tracking-[0.1em] text-[#E9CF9C]">
+                            Featured
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{c.category || '—'}</td>
                       <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{c.visible_tiers.join(', ')}</td>
                       <td className="px-5 py-3.5 font-serif text-sm text-cream/60 max-w-[260px] truncate">
                         <a href={c.video_url} target="_blank" rel="noreferrer" className="text-gold no-underline">

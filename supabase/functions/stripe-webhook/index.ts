@@ -1,6 +1,8 @@
-// Receives Stripe webhook events and syncs subscription / course-purchase
-// status into the DB. This is the ONLY place those statuses should ever
-// change — never trust a client-reported "I paid" claim.
+// Receives Stripe webhook events and syncs membership subscription status
+// into the DB (every course is included in the membership — see migration
+// 0013 — so there's no separate per-course status to track). This is the
+// ONLY place subscription_status should ever change — never trust a
+// client-reported "I paid" claim.
 //
 // verify_jwt is OFF for this function (see supabase/config.toml) since
 // Stripe calls it directly with no Supabase session; the Stripe signature
@@ -73,20 +75,6 @@ Deno.serve(async (req) => {
                 typeof session.subscription === 'string' ? session.subscription : session.subscription?.id,
             })
             .eq('id', userId)
-        } else if (session.mode === 'payment') {
-          const courseId = session.metadata?.course_id
-          if (courseId) {
-            await adminClient
-              .from('course_purchases')
-              .update({
-                status: 'completed',
-                purchased_at: new Date().toISOString(),
-                stripe_payment_intent_id:
-                  typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id,
-              })
-              .eq('user_id', userId)
-              .eq('course_id', courseId)
-          }
         }
         break
       }
@@ -123,15 +111,6 @@ Deno.serve(async (req) => {
             .update({ subscription_status: 'failed' })
             .eq('stripe_subscription_id', subscriptionId)
         }
-        break
-      }
-
-      case 'payment_intent.payment_failed': {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent
-        await adminClient
-          .from('course_purchases')
-          .update({ status: 'failed' })
-          .eq('stripe_payment_intent_id', paymentIntent.id)
         break
       }
 
