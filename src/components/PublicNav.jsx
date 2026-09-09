@@ -32,6 +32,20 @@ const NAV_LINKS = {
     { label: 'About', to: '/#meet-mike' },
     { label: 'Events', href: '#top', active: true },
   ],
+  '/membership': [
+    { label: 'For Disciples', to: '/' },
+    { label: 'For Leaders', to: '/leaders' },
+    { label: 'For Pastors', to: '/pastors' },
+    { label: 'Membership', href: '#top', active: true },
+    { label: 'Events', to: '/events' },
+  ],
+  '/programs': [
+    { label: 'For Disciples', to: '/' },
+    { label: 'For Leaders', to: '/leaders' },
+    { label: 'For Pastors', to: '/pastors' },
+    { label: 'Courses & Mentorship', href: '#top', active: true },
+    { label: 'Events', to: '/events' },
+  ],
 }
 
 const CTA = {
@@ -39,6 +53,8 @@ const CTA = {
   '/leaders': { label: 'Join the Movement', to: '/onboarding?tier=leader' },
   '/pastors': { label: 'Free Guide', href: '#guide' },
   '/events': { label: 'Stay Updated', href: '#stay' },
+  '/membership': { label: 'Join the Movement', to: '/onboarding?tier=disciple' },
+  '/programs': { label: 'See Membership', to: '/membership' },
 }
 
 function NavItem({ link }) {

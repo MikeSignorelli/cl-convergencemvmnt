@@ -19,6 +19,8 @@ export async function createCourse({
   category,
   durationLabel,
   featured,
+  priceCents,
+  stripePriceId,
   visibleTiers,
   thumbnailPath,
   videoUrl,
@@ -30,6 +32,8 @@ export async function createCourse({
     category: category || null,
     duration_label: durationLabel || null,
     featured: !!featured,
+    price_cents: priceCents || 0,
+    stripe_price_id: stripePriceId || null,
     visible_tiers: visibleTiers,
     thumbnail_path: thumbnailPath || null,
     video_url: videoUrl,
@@ -38,19 +42,29 @@ export async function createCourse({
   if (error) throw error
 }
 
-// Deliberately excludes video_url: browsing is open to every member (see
-// migration 0011's courses SELECT policy), but the actual video is only
-// ever fetched through get_course_video_url() once the member's tier +
-// active membership are confirmed (see billing.js's fetchCourseVideoUrl,
-// migration 0013) — selecting it here would leak locked content straight
-// past that gate.
+// Deliberately excludes video_url: browsing is open to everyone, including
+// anon (see migration 0015's courses SELECT policy — needed for the public
+// /programs catalog), but the actual video is only ever fetched through
+// get_course_video_url() once membership or a standalone purchase confirms
+// access (see billing.js's fetchCourseVideoUrl) — selecting it here would
+// leak locked content straight past that gate. price_cents is included so
+// both the member Course Library and the public standalone-purchase catalog
+// can share this one query.
 export async function listCourses() {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, title, description, category, duration_label, featured, visible_tiers, thumbnail_path, created_at')
+    .select('id, title, description, category, duration_label, featured, price_cents, visible_tiers, thumbnail_path, created_at')
     .order('created_at', { ascending: false })
   if (error) throw error
   return data || []
+}
+
+// The public "Courses & Mentorship" catalog only shows courses an admin has
+// actually priced for standalone purchase (price_cents > 0) — the rest stay
+// membership-only, visible in the member Course Library but not sold here.
+export async function listStandaloneCourses() {
+  const courses = await listCourses()
+  return courses.filter((c) => c.price_cents > 0)
 }
 
 // Admin-only view (video_url included) — see admin_list_courses() in

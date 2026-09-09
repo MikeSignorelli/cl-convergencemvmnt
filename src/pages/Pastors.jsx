@@ -195,7 +195,7 @@ export default function Pastors() {
               <p className="mb-6 flex-1 font-serif text-base leading-[1.62] text-cream/[66%]">
                 Structured programs that take you from knowing to actually living differently &mdash; breaking patterns, building a thriving life.
               </p>
-              <Link to="/onboarding?tier=pastor" className="inline-flex w-fit items-center gap-2 rounded-full bg-gold px-6 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-ink no-underline">
+              <Link to="/programs" className="inline-flex w-fit items-center gap-2 rounded-full bg-gold px-6 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-ink no-underline">
                 Join the movement From $497
               </Link>
             </div>

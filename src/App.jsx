@@ -5,6 +5,8 @@ import Home    from './pages/Home'
 import Leaders from './pages/Leaders'
 import Pastors from './pages/Pastors'
 import Events  from './pages/Events'
+import Membership from './pages/Membership'
+import Programs from './pages/Programs'
 
 import Dashboard     from './pages/member/Dashboard'
 import Login          from './pages/member/Login'
@@ -32,6 +34,8 @@ export default function App() {
         <Route path="/leaders" element={<Leaders />} />
         <Route path="/pastors" element={<Pastors />} />
         <Route path="/events"  element={<Events />} />
+        <Route path="/membership" element={<Membership />} />
+        <Route path="/programs" element={<Programs />} />
 
         <Route path="/onboarding"     element={<Onboarding />} />
         <Route path="/signup/complete" element={<SetPassword />} />

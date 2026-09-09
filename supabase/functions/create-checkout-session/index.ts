@@ -1,10 +1,12 @@
-// Creates a Stripe Checkout Session for the $49/mo membership subscription
-// and returns its URL for the client to redirect to (every course is
-// included in the membership — see migration 0013 — so this is the only
-// thing anyone ever checks out for). Runs with the caller's own JWT
-// (verify_jwt stays on, the default) so `user` below is always the
-// authenticated member — never trust a user id passed in the request body
-// for this reason.
+// Creates a Stripe Checkout Session for either the $49/mo membership
+// subscription or a one-time standalone course purchase, and returns its
+// URL for the client to redirect to. Every course is already included in
+// the membership (see migration 0013) — a standalone purchase (migration
+// 0015) is for the separate "Courses & Mentorship" catalog on the
+// marketing site, so someone not ready to subscribe can still buy access
+// to one course outright. Runs with the caller's own JWT (verify_jwt stays
+// on, the default) so `user` below is always the authenticated member —
+// never trust a user id passed in the request body for this reason.
 //
 // NOT LIVE-TESTABLE without real Stripe keys — see supabase/functions/README.md
 // for the exact secrets this function needs and how to set them.
@@ -95,6 +97,61 @@ Deno.serve(async (req) => {
         cancel_url: `${siteUrl}/dashboard?checkout=cancelled`,
         metadata: { supabase_user_id: user.id, type: 'membership' },
       })
+
+      return new Response(JSON.stringify({ url: session.url }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (body.type === 'course') {
+      const courseId = body.courseId
+      if (!courseId) {
+        return new Response(JSON.stringify({ error: 'courseId is required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const { data: course, error: courseError } = await adminClient
+        .from('courses')
+        .select('id, title, price_cents, stripe_price_id')
+        .eq('id', courseId)
+        .maybeSingle()
+      if (courseError || !course) {
+        return new Response(JSON.stringify({ error: 'Course not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      if (!course.stripe_price_id) {
+        return new Response(JSON.stringify({ error: 'This course has no Stripe price configured yet' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        customer: customerId,
+        client_reference_id: user.id,
+        line_items: [{ price: course.stripe_price_id, quantity: 1 }],
+        success_url: `${siteUrl}/courses/${courseId}?checkout=success`,
+        cancel_url: `${siteUrl}/courses/${courseId}?checkout=cancelled`,
+        metadata: { supabase_user_id: user.id, type: 'course', course_id: courseId },
+      })
+
+      // Recorded as 'pending' now so the Members/course-purchase views have
+      // something to show immediately; the webhook flips it to 'completed'
+      // (or 'failed') once Stripe actually confirms the payment.
+      await adminClient.from('course_purchases').upsert(
+        {
+          user_id: user.id,
+          course_id: courseId,
+          stripe_checkout_session_id: session.id,
+          status: 'pending',
+        },
+        { onConflict: 'user_id,course_id' }
+      )
 
       return new Response(JSON.stringify({ url: session.url }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

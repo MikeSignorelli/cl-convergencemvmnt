@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
 import { adminListCourses, createCourse, deleteCourse, uploadCourseThumbnail } from '../../lib/courses'
+import { formatPrice } from '../../lib/billing'
 
 const TIERS = ['disciple', 'leader', 'pastor']
 
@@ -13,6 +14,8 @@ export default function UploadCourses() {
   const [category, setCategory] = useState('')
   const [durationLabel, setDurationLabel] = useState('')
   const [featured, setFeatured] = useState(false)
+  const [price, setPrice] = useState('')
+  const [stripePriceId, setStripePriceId] = useState('')
   const [visibleTiers, setVisibleTiers] = useState(TIERS)
   const [videoUrl, setVideoUrl] = useState('')
   const [thumbnail, setThumbnail] = useState(null)
@@ -70,6 +73,8 @@ export default function UploadCourses() {
         category: category.trim(),
         durationLabel: durationLabel.trim(),
         featured,
+        priceCents: Math.round(parseFloat(price || '0') * 100) || 0,
+        stripePriceId: stripePriceId.trim(),
         visibleTiers,
         thumbnailPath,
         videoUrl: videoUrl.trim(),
@@ -80,6 +85,8 @@ export default function UploadCourses() {
       setCategory('')
       setDurationLabel('')
       setFeatured(false)
+      setPrice('')
+      setStripePriceId('')
       setVisibleTiers(TIERS)
       setVideoUrl('')
       setThumbnail(null)
@@ -171,6 +178,41 @@ export default function UploadCourses() {
               Feature this course in the library's hero banner
             </label>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
+                  Standalone price (USD, optional — 0 for membership-only)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="497.00"
+                  className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none"
+                />
+                <p className="mt-1.5 font-serif text-[12px] text-cream/40">
+                  Above 0 lists this course on the public /programs catalog, purchasable outright — it's still free with an active membership either way.
+                </p>
+              </div>
+              <div>
+                <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
+                  Stripe Price ID (optional)
+                </label>
+                <input
+                  type="text"
+                  value={stripePriceId}
+                  onChange={(e) => setStripePriceId(e.target.value)}
+                  placeholder="price_…"
+                  className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none"
+                />
+                <p className="mt-1.5 font-serif text-[12px] text-cream/40">
+                  Required before checkout will actually work — see supabase/functions/README.md.
+                </p>
+              </div>
+            </div>
+
             <div>
               <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
                 Visible to
@@ -237,6 +279,7 @@ export default function UploadCourses() {
                 <tr className="border-b border-cream/[0.09] bg-cream/[0.03]">
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Title</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Category</th>
+                  <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Price</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Visible to</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Video</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50" />
@@ -245,12 +288,12 @@ export default function UploadCourses() {
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-6 text-center font-serif text-cream/50">Loading…</td>
+                    <td colSpan={6} className="px-5 py-6 text-center font-serif text-cream/50">Loading…</td>
                   </tr>
                 )}
                 {!loading && courses.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-6 text-center font-serif text-cream/50">No courses yet.</td>
+                    <td colSpan={6} className="px-5 py-6 text-center font-serif text-cream/50">No courses yet.</td>
                   </tr>
                 )}
                 {!loading &&
@@ -265,6 +308,9 @@ export default function UploadCourses() {
                         )}
                       </td>
                       <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{c.category || '—'}</td>
+                      <td className="px-5 py-3.5 font-serif text-sm text-gold">
+                        {c.price_cents > 0 ? formatPrice(c.price_cents) : 'Membership only'}
+                      </td>
                       <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{c.visible_tiers.join(', ')}</td>
                       <td className="px-5 py-3.5 font-serif text-sm text-cream/60 max-w-[260px] truncate">
                         <a href={c.video_url} target="_blank" rel="noreferrer" className="text-gold no-underline">

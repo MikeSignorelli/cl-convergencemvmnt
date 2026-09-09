@@ -17,9 +17,28 @@ export async function startMembershipCheckout() {
 // video is still served through this RPC rather than reading
 // courses.video_url directly, since RLS can't hide a single column on an
 // otherwise-visible row, and the RPC is what actually checks the caller's
-// tier + subscription status.
+// tier + subscription status (or a completed standalone purchase — see
+// migration 0015).
 export async function fetchCourseVideoUrl(courseId) {
   const { data, error } = await supabase.rpc('get_course_video_url', { p_course_id: courseId })
   if (error) throw error
   return data
+}
+
+// One-time standalone purchase of a single course — for the public
+// "Courses & Mentorship" catalog (/programs), where someone not ready to
+// subscribe can still buy access to just one course. Every course is
+// already free with an active membership; this is the alternate path.
+export async function startCoursePurchase(courseId) {
+  const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+    body: { type: 'course', courseId },
+  })
+  if (error) throw error
+  if (!data?.url) throw new Error('Checkout session did not return a URL.')
+  window.location.href = data.url
+}
+
+export function formatPrice(cents) {
+  if (!cents) return 'Free'
+  return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`
 }
