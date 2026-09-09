@@ -1,13 +1,15 @@
 import { Link } from 'react-router-dom'
 import logo from '../../assets/images/convergence-mvmnt.png'
-import { useOnboardingSession, TOTAL_STEPS, LOGIN_STEP, PROFILE_STEP } from './useOnboardingSession'
+import { useOnboardingSession, TOTAL_STEPS, LOGIN_STEP, PAYMENT_STEP, PROFILE_STEP } from './useOnboardingSession'
 import CreateLoginStep from './CreateLoginStep'
+import PaymentStep from './PaymentStep'
 import ProfileStep from './ProfileStep'
 
 const STEP_NAMES = [
   'Your focus',
   'Daily rhythm',
   'Create your login',
+  'Payment',
   'Profile',
   'Get the app',
 ]
@@ -146,6 +148,8 @@ export default function Onboarding() {
 
         {step === LOGIN_STEP && <CreateLoginStep tier={tier} rhythm={rhythm} picked={picked} onBack={back} />}
 
+        {step === PAYMENT_STEP && <PaymentStep onNext={next} />}
+
         {step === PROFILE_STEP && <ProfileStep onBack={back} onNext={next} />}
 
         {step === TOTAL_STEPS && (
@@ -174,9 +178,10 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* "Create your login" and "Set up your profile" render their own Back/Continue
-            (submitting IS the continue action), so the generic footer is skipped for those. */}
-        {step !== LOGIN_STEP && step !== PROFILE_STEP && (
+        {/* "Create your login", "Payment", and "Set up your profile" render their own
+            Back/Continue (submitting/paying IS the continue action), so the generic
+            footer is skipped for those. */}
+        {step !== LOGIN_STEP && step !== PAYMENT_STEP && step !== PROFILE_STEP && (
           <div className="mt-[38px] flex items-center justify-between">
             {step > 1 ? (
               <button

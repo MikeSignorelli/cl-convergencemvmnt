@@ -88,13 +88,22 @@ Deno.serve(async (req) => {
         })
       }
 
+      // Where to send the browser back to after Stripe — the onboarding
+      // payment step (mid-signup) needs to resume the wizard rather than
+      // land on the dashboard like every other membership checkout does.
+      // Allowlisted rather than trusting body.returnTo directly: this ends
+      // up in a redirect URL, so an unchecked value would be an open
+      // redirect off this endpoint.
+      const allowedReturnPaths = ['/dashboard', '/onboarding']
+      const returnPath = allowedReturnPaths.includes(body.returnTo) ? body.returnTo : '/dashboard'
+
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         customer: customerId,
         client_reference_id: user.id, // correlates the webhook back to this member — the "membership_id" link
         line_items: [{ price: membershipPriceId, quantity: 1 }],
-        success_url: `${siteUrl}/dashboard?checkout=success`,
-        cancel_url: `${siteUrl}/dashboard?checkout=cancelled`,
+        success_url: `${siteUrl}${returnPath}?checkout=success`,
+        cancel_url: `${siteUrl}${returnPath}?checkout=cancelled`,
         metadata: { supabase_user_id: user.id, type: 'membership' },
       })
 

@@ -1,8 +1,59 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import PublicLayout from '../components/PublicLayout'
+import { useAuth } from '../lib/AuthContext'
+import { startMembershipCheckout } from '../lib/billing'
 import heroPhoto from '../assets/images/drop-a-hero-photo-of-mike.webp'
 import mikePortrait from '../assets/images/drop-a-portrait-of-mike.webp'
 import teachingPhoto from '../assets/images/mike-with-pastors-leading-a-room.webp'
+
+// A visitor with no account goes through the full onboarding wizard (which
+// now ends in its own payment step) — but someone already logged in who
+// clicks this (a lapsed member renewing, or one who dropped off before
+// finishing payment) shouldn't be sent through onboarding again just to
+// reach checkout they could already do from the dashboard. This skips
+// straight to it, or to the dashboard itself if they're already active.
+function JoinButton({ className, children }) {
+  const { session, profile } = useAuth()
+  const [starting, setStarting] = useState(false)
+  const [error, setError] = useState('')
+
+  if (!session || !profile) {
+    return (
+      <Link to="/onboarding?tier=disciple" className={className}>
+        {children}
+      </Link>
+    )
+  }
+
+  if (profile.subscription_status === 'active') {
+    return (
+      <Link to="/dashboard" className={className}>
+        Go to my dashboard
+      </Link>
+    )
+  }
+
+  async function handleClick() {
+    setStarting(true)
+    setError('')
+    try {
+      await startMembershipCheckout()
+    } catch (err) {
+      setError(err.message || 'Could not start checkout. Please try again.')
+      setStarting(false)
+    }
+  }
+
+  return (
+    <div className="inline-flex flex-col items-center gap-2">
+      <button type="button" onClick={handleClick} disabled={starting} className={`${className} cursor-pointer border-none disabled:cursor-not-allowed disabled:opacity-60`}>
+        {starting ? 'Redirecting…' : children}
+      </button>
+      {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
+    </div>
+  )
+}
 
 const CHECKMARK = (
   <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#C2A064" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="mt-1 shrink-0">
@@ -103,9 +154,9 @@ export default function Membership() {
               that outlasts you. Not information. A system you actually follow through on.
             </p>
             <div className="flex flex-wrap items-center gap-6">
-              <Link to="/onboarding?tier=disciple" className="inline-flex items-center gap-2.5 rounded-full bg-gold px-[34px] py-4 font-sans text-sm font-semibold uppercase tracking-[0.12em] text-ink no-underline">
+              <JoinButton className="inline-flex items-center gap-2.5 rounded-full bg-gold px-[34px] py-4 font-sans text-sm font-semibold uppercase tracking-[0.12em] text-ink no-underline">
                 Join the movement — $49/mo
-              </Link>
+              </JoinButton>
               <a href="#included" className="font-sans text-[13px] font-semibold uppercase tracking-[0.1em] text-cream/60 no-underline hover:text-cream-solid">
                 See what&rsquo;s included ↓
               </a>
@@ -283,9 +334,9 @@ export default function Membership() {
                 <div className="font-sans text-[34px] font-bold text-cream-solid">
                   $49<span className="text-base font-medium text-cream/60">/mo</span>
                 </div>
-                <Link to="/onboarding?tier=disciple" className="inline-flex items-center gap-2.5 rounded-full bg-gold px-[42px] py-[17px] font-sans text-[15px] font-semibold uppercase tracking-[0.1em] text-ink no-underline">
+                <JoinButton className="inline-flex items-center gap-2.5 rounded-full bg-gold px-[42px] py-[17px] font-sans text-[15px] font-semibold uppercase tracking-[0.1em] text-ink no-underline">
                   Join the movement
-                </Link>
+                </JoinButton>
                 <span className="font-serif text-[13px] text-cream/45">Cancel anytime. No contracts. Secure checkout via Stripe.</span>
               </div>
             </div>

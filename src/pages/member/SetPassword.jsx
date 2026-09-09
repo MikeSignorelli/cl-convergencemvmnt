@@ -11,7 +11,7 @@ import {
   normalizeEmail,
   EMAIL_PATTERN,
 } from '../../lib/onboardingSignup'
-import { seedOnboardingSession, PROFILE_STEP } from './useOnboardingSession'
+import { seedOnboardingSession, PAYMENT_STEP } from './useOnboardingSession'
 import { isCommonPassword } from '../../lib/commonPasswords'
 import logo from '../../assets/images/convergence-mvmnt.png'
 
@@ -217,7 +217,7 @@ export default function SetPassword() {
             setStatus('google-error')
             return
           }
-          seedOnboardingSession({ step: PROFILE_STEP, ...answers })
+          seedOnboardingSession({ step: PAYMENT_STEP, ...answers })
           await refreshProfile()
           if (!cancelled) navigate('/onboarding', { replace: true })
         } catch {
@@ -263,7 +263,7 @@ export default function SetPassword() {
     try {
       const { answers } = await completeSignup({ password })
       if (answers) {
-        seedOnboardingSession({ step: PROFILE_STEP, ...answers })
+        seedOnboardingSession({ step: PAYMENT_STEP, ...answers })
       }
       await refreshProfile()
       navigate('/onboarding', { replace: true })

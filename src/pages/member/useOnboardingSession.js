@@ -8,13 +8,16 @@ import { supabase } from '../../lib/supabaseClient'
 
 const STORAGE_KEY = 'cv-onboarding-session'
 export const VALID_TIERS = ['disciple', 'leader', 'pastor']
-export const TOTAL_STEPS = 5
+export const TOTAL_STEPS = 6
 // "Create your login" (3) and everything after it requires having actually been
-// through that step — reaching "Set up your profile" (4) or later without a
-// real Supabase session means someone jumped ahead (stale storage, manual nav,
-// etc.), so we clamp back to 3 rather than showing a step that assumes auth.
+// through that step — reaching "Payment" (4) or later without a real Supabase
+// session means someone jumped ahead (stale storage, manual nav, etc.), so we
+// clamp back to 3 rather than showing a step that assumes auth. Payment itself
+// gates "Set up your profile" (5): the account already exists once you reach
+// step 4, but the membership isn't paid for yet until Stripe confirms it.
 export const LOGIN_STEP = 3
-export const PROFILE_STEP = 4
+export const PAYMENT_STEP = 4
+export const PROFILE_STEP = 5
 
 const DEFAULTS = {
   step: 1,
@@ -86,11 +89,11 @@ export function useOnboardingSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Guard: someone landing on the profile step (or later) without ever having
+  // Guard: someone landing on the payment step (or later) without ever having
   // authenticated via "Create your login" gets sent back to that step instead
-  // of seeing a broken/empty profile screen.
+  // of seeing a broken/empty screen.
   useEffect(() => {
-    if (step < PROFILE_STEP) return
+    if (step < PAYMENT_STEP) return
     let cancelled = false
     supabase.auth.getSession().then(({ data }) => {
       if (!cancelled && !data.session) setStep(LOGIN_STEP)

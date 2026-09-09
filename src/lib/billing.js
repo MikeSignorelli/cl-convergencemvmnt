@@ -4,9 +4,15 @@ import { supabase } from './supabaseClient'
 // supabase/functions/README.md) and redirects the browser to the Stripe
 // Checkout URL it returns. Requires real Stripe keys to be configured on
 // the Edge Function before this will actually work end to end.
-export async function startMembershipCheckout() {
+//
+// returnTo controls where Stripe sends the browser back to after checkout
+// (?checkout=success or =cancelled appended) — the dashboard's own
+// PaymentWall omits it (defaults server-side to /dashboard), while the
+// onboarding payment step passes '/onboarding' so it resumes the wizard
+// instead of dropping the still-mid-onboarding user onto the dashboard.
+export async function startMembershipCheckout(returnTo) {
   const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-    body: { type: 'membership' },
+    body: { type: 'membership', returnTo },
   })
   if (error) throw error
   if (!data?.url) throw new Error('Checkout session did not return a URL.')
