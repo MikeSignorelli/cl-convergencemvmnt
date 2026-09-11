@@ -437,17 +437,31 @@ export default function Dashboard() {
                 <div className="mb-4 font-serif text-[14.5px] text-cream/70">
                   {liveWhen} · with Mike Signorelli
                 </div>
+                {/* Deliberately NOT `disabled` — a disabled button suppresses
+                    hover tooltips and clicks entirely, which reads as broken.
+                    Instead it's always hoverable and only acts when there's a
+                    real upcoming session. */}
                 <button
                   type="button"
-                  disabled={!canAddToCalendar}
-                  title={canAddToCalendar ? `Adds to your calendar · ${liveWhen}` : undefined}
+                  title={
+                    readOnly
+                      ? 'Preview mode — add to calendar is off while previewing a tier'
+                      : nextSession
+                        ? `Add “${liveTitle}” to your calendar · ${liveWhen}`
+                        : 'No upcoming live session scheduled yet'
+                  }
                   onClick={
                     canAddToCalendar
                       ? () => window.open(googleCalendarUrl(nextSession), '_blank', 'noopener,noreferrer')
                       : undefined
                   }
-                  className="w-full rounded-full py-3 font-sans text-xs font-semibold uppercase tracking-[0.12em] disabled:cursor-default disabled:opacity-50"
-                  style={{ background: t.accent, color: '#171C10' }}
+                  className="w-full rounded-full py-3 font-sans text-xs font-semibold uppercase tracking-[0.12em] transition hover:brightness-95"
+                  style={{
+                    background: t.accent,
+                    color: '#171C10',
+                    opacity: canAddToCalendar ? 1 : 0.55,
+                    cursor: canAddToCalendar ? 'pointer' : 'default',
+                  }}
                 >
                   Add to calendar
                 </button>
