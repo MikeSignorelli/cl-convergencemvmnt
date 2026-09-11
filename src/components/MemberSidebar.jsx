@@ -76,6 +76,29 @@ const GROW = [
   },
 ]
 
+const ACCOUNT = [
+  {
+    label: 'Profile',
+    to: '/profile',
+    icon: (
+      <>
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </>
+    ),
+  },
+  {
+    label: 'Payment history',
+    to: '/payments',
+    icon: (
+      <>
+        <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+        <line x1="1" y1="10" x2="23" y2="10" />
+      </>
+    ),
+  },
+]
+
 const ADMIN = [
   {
     label: 'Members',
@@ -165,14 +188,23 @@ export default function MemberSidebar({ active }) {
         <NavGroup title="Learn" items={LEARN} active={active} />
         <NavGroup title="Connect" items={CONNECT} active={active} />
         <NavGroup title="Grow" items={GROW} active={active} />
+        <NavGroup title="Account" items={ACCOUNT} active={active} />
         {isAdmin && <NavGroup title="Admin" items={ADMIN} active={active} />}
       </nav>
       <div className="flex items-center gap-2.5 rounded-[11px] border border-cream/[0.07] bg-cream/[0.04] p-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/[0.14] font-sans text-[13px] font-bold text-gold">{initials}</div>
-        <div className="min-w-0 flex-1">
-          <div className="overflow-hidden text-ellipsis whitespace-nowrap font-sans text-[13.5px] font-semibold tracking-[0.02em]">{displayName}</div>
-          <div className="font-sans text-[10.5px] font-semibold uppercase tracking-[0.14em] text-gold">{tierLabel}</div>
-        </div>
+        <Link to="/profile" className="flex min-w-0 flex-1 items-center gap-2.5 text-inherit no-underline" title="View profile">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gold/[0.14] font-sans text-[13px] font-bold text-gold">
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initials
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="overflow-hidden text-ellipsis whitespace-nowrap font-sans text-[13.5px] font-semibold tracking-[0.02em]">{displayName}</div>
+            <div className="font-sans text-[10.5px] font-semibold uppercase tracking-[0.14em] text-gold">{tierLabel}</div>
+          </div>
+        </Link>
         <button
           type="button"
           onClick={handleLogout}

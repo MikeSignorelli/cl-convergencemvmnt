@@ -48,3 +48,45 @@ export function formatPrice(cents) {
   if (!cents) return 'Free'
   return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`
 }
+
+// Everything the Payment History page needs, in one call to the
+// get-billing-summary Edge Function (which reads live Stripe data server-side
+// — membership charges aren't stored in our DB, only subscription_status is).
+// Returns:
+//   {
+//     hasStripeCustomer: boolean,
+//     membership: null | {
+//       status,                 // profile.subscription_status: pending|active|failed|cancelled
+//       cancelAtPeriodEnd,      // boolean — a cancellation is already scheduled
+//       currentPeriodEnd,       // ISO string | null — access-through / renewal date
+//       upcomingAmountCents,    // next charge, or null (e.g. cancelling)
+//       upcomingCurrency,
+//       upcomingDate,           // ISO string | null
+//     },
+//     transactions: [{         // membership invoices + course purchases, newest-first
+//       id, type,               // 'membership' | 'course'
+//       description,            // 'Monthly membership' | course title
+//       date,                   // ISO string
+//       amountCents, currency,
+//       status,                 // membership: paid|open|draft|uncollectible|void ; course: completed|pending|failed
+//       receiptUrl,             // hosted Stripe invoice URL, or null
+//     }]
+//   }
+export async function fetchBillingSummary() {
+  const { data, error } = await supabase.functions.invoke('get-billing-summary')
+  if (error) throw error
+  return data
+}
+
+// Schedules (cancel = true) or clears (cancel = false) cancellation of the
+// caller's membership at the end of the current billing period — see the
+// cancel-subscription Edge Function. Returns { cancelAtPeriodEnd,
+// currentPeriodEnd }. The member keeps access until the period ends; the
+// subscription_status flip to 'cancelled' happens later via the webhook.
+export async function setMembershipCancellation(cancel) {
+  const { data, error } = await supabase.functions.invoke('cancel-subscription', {
+    body: { action: cancel ? 'cancel' : 'resume' },
+  })
+  if (error) throw error
+  return data
+}

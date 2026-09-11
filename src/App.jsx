@@ -18,6 +18,8 @@ import CourseLibrary from './pages/member/CourseLibrary'
 import CourseDetail  from './pages/member/CourseDetail'
 import Player        from './pages/member/Player'
 import Progress      from './pages/member/Progress'
+import PaymentHistory from './pages/member/PaymentHistory'
+import Profile        from './pages/member/Profile'
 import Members            from './pages/admin/Members'
 import UploadResources    from './pages/admin/UploadResources'
 import UploadCourses      from './pages/admin/UploadCourses'
@@ -53,6 +55,8 @@ export default function App() {
         <Route path="/resources"      element={<UploadResources />} />
         <Route path="/player"         element={<Player />} />
         <Route path="/progress"       element={<Progress />} />
+        <Route path="/payments"       element={<RequireAuth><PaymentHistory /></RequireAuth>} />
+        <Route path="/profile"        element={<RequireAuth><Profile /></RequireAuth>} />
 
         <Route path="*" element={<Home />} />
       </Routes>
