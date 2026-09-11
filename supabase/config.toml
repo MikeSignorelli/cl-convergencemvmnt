@@ -3,3 +3,8 @@ verify_jwt = false
 
 [functions.create-checkout-session]
 verify_jwt = true
+
+# Called by a scheduler, not a user — gated by the x-cron-secret header instead
+# (see the function). verify_jwt off so the cron/pg_net call needn't carry a JWT.
+[functions.send-setup-reminders]
+verify_jwt = false
