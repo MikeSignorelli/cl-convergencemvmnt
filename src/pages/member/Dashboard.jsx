@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
 import PaymentWall, { PaymentStatusBadge } from '../../components/PaymentWall'
 import { useAuth } from '../../lib/AuthContext'
+import { listLiveSessions } from '../../lib/liveSessions'
 import continueWatchingImg from '../../assets/app-images/dashboard-continue-watching.jpg'
 import dailyResetImg from '../../assets/app-images/dashboard-daily-reset.jpg'
 
@@ -89,6 +90,42 @@ function todayLabel() {
   return `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`
 }
 
+// Human-readable session time for the card + hover tooltip, in the viewer's
+// local timezone.
+function formatSessionDate(iso) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString(undefined, {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+// Google Calendar wants UTC timestamps as YYYYMMDDTHHMMSSZ.
+function toGCalStamp(date) {
+  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
+}
+
+// A Google Calendar "add event" link pre-filled from a real live session.
+// There's no duration column (migration 0008), so events default to 60 min.
+function googleCalendarUrl(session) {
+  const start = new Date(session.scheduled_at)
+  const end = new Date(start.getTime() + 60 * 60 * 1000)
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: session.title || 'Live session',
+    dates: `${toGCalStamp(start)}/${toGCalStamp(end)}`,
+    details: [session.description, session.join_url ? `Join: ${session.join_url}` : '']
+      .filter(Boolean)
+      .join('\n\n'),
+    location: session.join_url || '',
+  })
+  return `https://calendar.google.com/calendar/render?${params.toString()}`
+}
+
 export default function Dashboard() {
   const { profile, isAdmin, previewTier, setPreviewTier } = useAuth()
   const tier = isAdmin ? previewTier || 'disciple' : profile?.tier || 'disciple'
@@ -103,6 +140,31 @@ export default function Dashboard() {
   // through (they don't hold a subscription), everyone else needs
   // subscription_status === 'active' (see migration 0011 / Stripe webhook).
   const hasPaidAccess = isAdmin || profile?.subscription_status === 'active'
+
+  // Next upcoming live session, read from real data (RLS already scopes
+  // live_sessions to the member's tier). listLiveSessions is sorted ascending
+  // by scheduled_at, so the first future one is the soonest.
+  const [nextSession, setNextSession] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    listLiveSessions()
+      .then((rows) => {
+        if (cancelled) return
+        const now = Date.now()
+        const upcoming = (rows || []).filter((s) => new Date(s.scheduled_at).getTime() > now)
+        setNextSession(upcoming[0] || null)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Real session when one exists; otherwise the demo teaser stays, but the
+  // button is disabled — it only ever adds a real, scheduled event.
+  const liveTitle = nextSession ? nextSession.title : t.liveTitle
+  const liveWhen = nextSession ? formatSessionDate(nextSession.scheduled_at) : t.liveDate
+  const canAddToCalendar = !readOnly && !!nextSession
 
   return (
     <div className="flex min-h-screen bg-ink font-sans text-cream">
@@ -370,14 +432,20 @@ export default function Dashboard() {
                   </span>
                 </div>
                 <div className="mb-1.5 font-sans text-[19px] font-bold uppercase leading-[1.12] text-white">
-                  {t.liveTitle}
+                  {liveTitle}
                 </div>
                 <div className="mb-4 font-serif text-[14.5px] text-cream/70">
-                  {t.liveDate} · with Mike Signorelli
+                  {liveWhen} · with Mike Signorelli
                 </div>
                 <button
                   type="button"
-                  disabled={readOnly}
+                  disabled={!canAddToCalendar}
+                  title={canAddToCalendar ? `Adds to your calendar · ${liveWhen}` : undefined}
+                  onClick={
+                    canAddToCalendar
+                      ? () => window.open(googleCalendarUrl(nextSession), '_blank', 'noopener,noreferrer')
+                      : undefined
+                  }
                   className="w-full rounded-full py-3 font-sans text-xs font-semibold uppercase tracking-[0.12em] disabled:cursor-default disabled:opacity-50"
                   style={{ background: t.accent, color: '#171C10' }}
                 >
