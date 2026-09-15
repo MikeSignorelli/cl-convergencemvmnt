@@ -30,9 +30,9 @@ function CourseCard({ course, unlocked }) {
   return (
     <Link to={`/courses/${course.id}`} className="block w-[300px] shrink-0 text-inherit no-underline">
       <div className="relative mb-2.5 aspect-video overflow-hidden rounded-xl border border-cream/[0.09] bg-[rgb(30,36,22)]">
-        {course.thumbnail_path && (
+        {course.thumbnail_url && (
           <img
-            src={course.thumbnail_path}
+            src={course.thumbnail_url}
             alt=""
             className={`absolute inset-0 h-full w-full object-cover ${
               unlocked ? 'brightness-[0.7]' : 'scale-105 brightness-[0.5] blur-[3px]'

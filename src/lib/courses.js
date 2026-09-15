@@ -1,5 +1,15 @@
 import { supabase } from './supabaseClient'
 
+// Thumbnails are stored as a storage PATH (see uploadCourseThumbnail), not a
+// URL — resolve to the public URL for display. Tolerates legacy rows that may
+// already hold a full URL, and returns null when there's no thumbnail.
+export function courseThumbnailUrl(path) {
+  if (!path) return null
+  if (/^https?:\/\//i.test(path)) return path
+  const { data } = supabase.storage.from('course-thumbnails').getPublicUrl(path)
+  return data.publicUrl
+}
+
 export async function uploadCourseThumbnail(file) {
   const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
   const path = `${crypto.randomUUID()}.${ext}`
@@ -56,7 +66,7 @@ export async function listCourses() {
     .select('id, title, description, category, duration_label, featured, price_cents, visible_tiers, thumbnail_path, created_at')
     .order('created_at', { ascending: false })
   if (error) throw error
-  return data || []
+  return (data || []).map((c) => ({ ...c, thumbnail_url: courseThumbnailUrl(c.thumbnail_path) }))
 }
 
 // The public "Courses & Mentorship" catalog only shows courses an admin has
@@ -82,7 +92,7 @@ export async function fetchCourse(id) {
     .eq('id', id)
     .maybeSingle()
   if (error) throw error
-  return data
+  return data ? { ...data, thumbnail_url: courseThumbnailUrl(data.thumbnail_path) } : data
 }
 
 export async function deleteCourse(id, thumbnailPath) {

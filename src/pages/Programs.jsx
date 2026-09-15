@@ -27,8 +27,8 @@ function ProgramCard({ course, onEnroll, enrollingId, enrollError }) {
   return (
     <div className="flex flex-col overflow-hidden rounded-[14px] border border-gold/[0.14] bg-card transition-transform hover:-translate-y-1">
       <div className="relative aspect-video overflow-hidden">
-        {course.thumbnail_path ? (
-          <img src={course.thumbnail_path} alt="" className="h-full w-full object-cover" />
+        {course.thumbnail_url ? (
+          <img src={course.thumbnail_url} alt="" className="h-full w-full object-cover" />
         ) : (
           <PlaceholderArt />
         )}
