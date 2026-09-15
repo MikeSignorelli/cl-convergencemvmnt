@@ -52,7 +52,11 @@ Deno.serve(async (req) => {
   // Auth call; the service role can't send it).
   const anonClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') ?? '')
 
-  const siteUrl = Deno.env.get('SITE_URL') ?? 'https://demo.convergencemvmnt.com'
+  // Recovery links are emailed to real members, so they must point at the live
+  // site. Kept separate from the shared SITE_URL secret (which the dev setup
+  // points at localhost, and which Stripe checkout also uses) via a dedicated
+  // RECOVERY_SITE_URL; defaults to production so no secret is required.
+  const siteUrl = Deno.env.get('RECOVERY_SITE_URL') ?? 'https://demo.convergencemvmnt.com'
   const redirectTo = `${siteUrl}/finish-setup`
 
   try {
