@@ -34,7 +34,9 @@ function CourseCard({ course, unlocked }) {
           <img
             src={course.thumbnail_path}
             alt=""
-            className="absolute inset-0 h-full w-full object-cover brightness-[0.7]"
+            className={`absolute inset-0 h-full w-full object-cover ${
+              unlocked ? 'brightness-[0.7]' : 'scale-105 brightness-[0.5] blur-[3px]'
+            }`}
           />
         )}
         <div className="absolute inset-0 bg-[linear-gradient(transparent_40%,rgba(10,13,7,0.85))]" />

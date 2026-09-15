@@ -2,18 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import logo from '../../assets/images/convergence-mvmnt.png'
 import PaymentWall from '../../components/PaymentWall'
+import UpgradeLock from '../../components/UpgradeLock'
+import VimeoPlayer from '../../components/VimeoPlayer'
 import { fetchCourse } from '../../lib/courses'
 import { fetchCourseVideoUrl } from '../../lib/billing'
 import { useAuth } from '../../lib/AuthContext'
-
-function LockIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(240,238,229,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-  )
-}
 
 export default function CourseDetail() {
   const { id } = useParams()
@@ -100,43 +93,26 @@ export default function CourseDetail() {
             )}
 
             {unlocked ? (
-              <div className="overflow-hidden rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)]">
-                <div className="flex aspect-video items-center justify-center bg-black">
-                  {videoUrl ? (
-                    <a
-                      href={videoUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex flex-col items-center gap-3 text-cream/80 no-underline"
-                    >
-                      <svg width="52" height="52" viewBox="0 0 24 24" fill="#C2A064">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                      <span className="font-sans text-[12px] font-semibold uppercase tracking-[0.1em]">
-                        Watch on external link ↗
-                      </span>
-                    </a>
-                  ) : (
-                    <span className="font-serif text-cream/50">This course doesn&rsquo;t have a video link set yet.</span>
-                  )}
+              videoUrl ? (
+                <VimeoPlayer video={videoUrl} />
+              ) : (
+                <div className="flex aspect-video items-center justify-center rounded-cv-lg border border-cream/[0.09] bg-black">
+                  <span className="font-serif text-cream/50">This course doesn&rsquo;t have a video link set yet.</span>
                 </div>
-              </div>
+              )
             ) : (
-              <div className="flex flex-col items-center gap-5 rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-10 py-14 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-cream/[0.06]">
-                  <LockIcon />
+              <UpgradeLock
+                title="Unlock this course"
+                message="This course is part of the Convergence full membership — join to stream it and unlock the entire library."
+                minHeight={360}
+              >
+                {/* Faux player, blurred behind the lock to hint at the content. */}
+                <div className="flex aspect-video w-full items-center justify-center bg-black">
+                  <svg width="56" height="56" viewBox="0 0 24 24" fill="#C2A064">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
                 </div>
-                <div>
-                  <h2 className="mb-1.5 font-sans text-lg font-bold uppercase text-white">
-                    Not included in your membership tier
-                  </h2>
-                  <p className="font-serif text-sm text-cream/60">
-                    {course.visible_tiers?.length
-                      ? `This course is reserved for ${course.visible_tiers.join('/')} tier members.`
-                      : 'This course is reserved for a different membership tier than yours.'}
-                  </p>
-                </div>
-              </div>
+              </UpgradeLock>
             )}
           </>
         )}

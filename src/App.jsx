@@ -7,6 +7,8 @@ import Pastors from './pages/Pastors'
 import Events  from './pages/Events'
 import Membership from './pages/Membership'
 import Programs from './pages/Programs'
+import LockPreview from './pages/LockPreview'
+import VimeoPreview from './pages/VimeoPreview'
 
 import Dashboard     from './pages/member/Dashboard'
 import Login          from './pages/member/Login'
@@ -39,6 +41,8 @@ export default function App() {
         <Route path="/events"  element={<Events />} />
         <Route path="/membership" element={<Membership />} />
         <Route path="/programs" element={<Programs />} />
+        <Route path="/lock-preview" element={<LockPreview />} />
+        <Route path="/vimeo-preview" element={<VimeoPreview />} />
 
         <Route path="/onboarding"     element={<Onboarding />} />
         <Route path="/signup/complete" element={<SetPassword />} />
