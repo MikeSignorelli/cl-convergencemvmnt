@@ -1,14 +1,38 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
-import { adminListCourses, createCourse, deleteCourse, uploadCourseThumbnail } from '../../lib/courses'
+import { adminListCourses, createCourse, deleteCourse, duplicateCourse, uploadCourseThumbnail } from '../../lib/courses'
 import { createLesson } from '../../lib/courseLessons'
 import { formatPrice } from '../../lib/billing'
 
 const TIERS = ['disciple', 'leader', 'pastor']
+const STATUSES = ['draft', 'published', 'archived']
+const PAGE_SIZE = 20
 const inputCls = 'w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none'
 const labelCls = 'mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50'
+const selectCls = 'w-auto cursor-pointer rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-2.5 font-serif text-[13.5px] text-cream outline-none'
+
+function capitalize(word) {
+  return word ? word.charAt(0).toUpperCase() + word.slice(1) : word
+}
+
+function StatusBadge({ status }) {
+  const colors = {
+    published: { bg: 'rgba(155,192,138,0.16)', text: '#9BC08A' },
+    draft: { bg: 'rgba(240,238,229,0.1)', text: 'rgba(240,238,229,0.6)' },
+    archived: { bg: 'rgba(216,136,138,0.16)', text: '#D8888A' },
+  }
+  const c = colors[status] || colors.draft
+  return (
+    <span
+      className="rounded-full px-3 py-1 font-sans text-[10.5px] font-semibold uppercase tracking-[0.1em]"
+      style={{ background: c.bg, color: c.text }}
+    >
+      {status || 'draft'}
+    </span>
+  )
+}
 
 export default function UploadCourses() {
   const navigate = useNavigate()
@@ -29,6 +53,13 @@ export default function UploadCourses() {
   const [firstVideoUrl, setFirstVideoUrl] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('created_desc')
+  const [page, setPage] = useState(1)
+  const [duplicatingId, setDuplicatingId] = useState(null)
 
   async function refresh() {
     setLoading(true)
@@ -105,20 +136,75 @@ export default function UploadCourses() {
   }
 
   async function handleDelete(course) {
-    if (!window.confirm(`Delete “${course.title}” and all its episodes? This can't be undone.`)) return
+    if (!window.confirm(`Remove “${course.title}” from the site? It disappears everywhere immediately, but nothing is permanently deleted.`)) return
     try {
-      await deleteCourse(course.id, course.thumbnail_path)
+      await deleteCourse(course.id)
       await refresh()
     } catch (err) {
       setError(err.message)
     }
   }
 
+  async function handleDuplicate(course) {
+    setError('')
+    setDuplicatingId(course.id)
+    try {
+      const created = await duplicateCourse(course.id)
+      navigate(`/admin/courses/${created.id}`)
+    } catch (err) {
+      setError(err.message || 'Could not duplicate this course.')
+      setDuplicatingId(null)
+    }
+  }
+
+  // Client-side only, over the already-fetched admin list — no server-side
+  // search endpoint needed at this scale (see task scope).
+  const categories = useMemo(() => {
+    const seen = []
+    for (const c of courses) {
+      if (c.category && !seen.includes(c.category)) seen.push(c.category)
+    }
+    return seen
+  }, [courses])
+
+  const filteredCourses = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const filtered = courses.filter((c) => {
+      if (q && !c.title.toLowerCase().includes(q)) return false
+      if (categoryFilter !== 'all' && c.category !== categoryFilter) return false
+      if (statusFilter !== 'all' && (c.status || 'draft') !== statusFilter) return false
+      return true
+    })
+    return filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'title_asc':
+          return a.title.localeCompare(b.title)
+        case 'title_desc':
+          return b.title.localeCompare(a.title)
+        case 'created_asc':
+          return new Date(a.created_at) - new Date(b.created_at)
+        case 'created_desc':
+        default:
+          return new Date(b.created_at) - new Date(a.created_at)
+      }
+    })
+  }, [courses, search, categoryFilter, statusFilter, sortBy])
+
+  // Reset to page 1 whenever the filtered set could change shape, so a stale
+  // page number never shows a blank page of results.
+  useEffect(() => {
+    setPage(1)
+  }, [search, categoryFilter, statusFilter, sortBy])
+
+  const pageCount = Math.max(1, Math.ceil(filteredCourses.length / PAGE_SIZE))
+  const currentPage = Math.min(page, pageCount)
+  const pageCourses = filteredCourses.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
   return (
     <div className="flex min-h-screen bg-ink font-sans text-cream">
       <MemberSidebar active="/admin/courses" />
       <div className="flex flex-1 flex-col min-w-0">
-        <MemberTopbar searchPlaceholder="Search courses…" />
+        <MemberTopbar searchPlaceholder="Search courses…" search={search} onSearch={setSearch} />
         <main className="mx-auto w-full max-w-[1180px] flex-1 px-8 pb-16 pt-9">
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
@@ -221,21 +307,48 @@ export default function UploadCourses() {
 
           {error && !showForm && <p className="mb-4 font-serif text-[13px] text-[#D8888A]">{error}</p>}
 
+          {!loading && courses.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ colorScheme: 'dark' }} className={selectCls}>
+                <option value="all">All categories</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ colorScheme: 'dark' }} className={selectCls}>
+                <option value="all">All statuses</option>
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>{capitalize(s)}</option>
+                ))}
+              </select>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ colorScheme: 'dark' }} className={`${selectCls} ml-auto`}>
+                <option value="created_desc">Newest first</option>
+                <option value="created_asc">Oldest first</option>
+                <option value="title_asc">Title A–Z</option>
+                <option value="title_desc">Title Z–A</option>
+              </select>
+            </div>
+          )}
+
           <div className="overflow-hidden rounded-cv-lg border border-cream/[0.09]">
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-cream/[0.09] bg-cream/[0.03]">
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Title</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Category</th>
+                  <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Status</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Price</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Visible to</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50" />
                 </tr>
               </thead>
               <tbody>
-                {loading && <tr><td colSpan={5} className="px-5 py-6 text-center font-serif text-cream/50">Loading…</td></tr>}
-                {!loading && courses.length === 0 && <tr><td colSpan={5} className="px-5 py-6 text-center font-serif text-cream/50">No courses yet — add your first with “New course.”</td></tr>}
-                {!loading && courses.map((c) => (
+                {loading && <tr><td colSpan={6} className="px-5 py-6 text-center font-serif text-cream/50">Loading…</td></tr>}
+                {!loading && courses.length === 0 && <tr><td colSpan={6} className="px-5 py-6 text-center font-serif text-cream/50">No courses yet — add your first with “New course.”</td></tr>}
+                {!loading && courses.length > 0 && filteredCourses.length === 0 && (
+                  <tr><td colSpan={6} className="px-5 py-6 text-center font-serif text-cream/50">No courses match your search or filters.</td></tr>
+                )}
+                {!loading && pageCourses.map((c) => (
                   <tr
                     key={c.id}
                     onClick={() => navigate(`/admin/courses/${c.id}`)}
@@ -248,6 +361,7 @@ export default function UploadCourses() {
                       )}
                     </td>
                     <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{c.category || '—'}</td>
+                    <td className="px-5 py-3.5"><StatusBadge status={c.status} /></td>
                     <td className="px-5 py-3.5 font-serif text-sm text-gold">{c.price_cents > 0 ? formatPrice(c.price_cents) : 'Membership only'}</td>
                     <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{c.visible_tiers.join(', ')}</td>
                     <td className="whitespace-nowrap px-5 py-3.5 text-right">
@@ -258,6 +372,14 @@ export default function UploadCourses() {
                       >
                         Manage →
                       </Link>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleDuplicate(c) }}
+                        disabled={duplicatingId === c.id}
+                        className="mr-4 cursor-pointer border-none bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/60 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {duplicatingId === c.id ? 'Duplicating…' : 'Duplicate'}
+                      </button>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); handleDelete(c) }}
@@ -271,6 +393,32 @@ export default function UploadCourses() {
               </tbody>
             </table>
           </div>
+
+          {!loading && filteredCourses.length > 0 && pageCount > 1 && (
+            <div className="mt-4 flex items-center justify-between gap-4">
+              <span className="font-serif text-[12.5px] text-cream/50">
+                Page {currentPage} of {pageCount} · {filteredCourses.length} course{filteredCourses.length === 1 ? '' : 's'}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                  className="cursor-pointer rounded-full border border-cream/[0.14] bg-transparent px-4 py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/70 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ← Prev
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                  disabled={currentPage >= pageCount}
+                  className="cursor-pointer rounded-full border border-cream/[0.14] bg-transparent px-4 py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/70 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>

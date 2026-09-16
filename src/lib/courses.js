@@ -142,11 +142,14 @@ export async function fetchCourseLessonsStats(courseId) {
 // access (see billing.js's fetchCourseVideoUrl) — selecting it here would
 // leak locked content straight past that gate. price_cents is included so
 // both the member Course Library and the public standalone-purchase catalog
-// can share this one query.
+// can share this one query. deleted_at is null excludes soft-deleted courses
+// (see deleteCourse) — a deleted course disappears from every member/public
+// view exactly as a real delete would, while its row stays intact.
 export async function listCourses() {
   const { data, error } = await supabase
     .from('courses')
     .select('id, title, description, category, duration_label, featured, price_cents, visible_tiers, thumbnail_path, created_at')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
   if (error) throw error
   return (data || []).map((c) => ({ ...c, thumbnail_url: courseThumbnailUrl(c.thumbnail_path) }))
@@ -162,6 +165,8 @@ export async function listStandaloneCourses() {
 
 // Admin-only view (video_url included) — see admin_list_courses() in
 // migration 0011 for why this needs its own RPC rather than listCourses().
+// The RPC itself excludes soft-deleted rows (deleted_at is not null) as of
+// migration 0028, so a deleted course drops out of the admin list too.
 export async function adminListCourses() {
   const { data, error } = await supabase.rpc('admin_list_courses')
   if (error) throw error
@@ -173,15 +178,91 @@ export async function fetchCourse(id) {
     .from('courses')
     .select('id, title, description, category, duration_label, visible_tiers, thumbnail_path, access_mode, created_at')
     .eq('id', id)
+    .is('deleted_at', null)
     .maybeSingle()
   if (error) throw error
   return data ? { ...data, thumbnail_url: courseThumbnailUrl(data.thumbnail_path) } : data
 }
 
-export async function deleteCourse(id, thumbnailPath) {
-  const { error } = await supabase.from('courses').delete().eq('id', id)
+// Soft delete: flips deleted_at instead of removing the row, so course_purchases
+// and lesson_progress history (both FK-referencing courses.id) stay intact and
+// the course could be restored later. Every read in this file (listCourses,
+// fetchCourse, adminListCourses's backing RPC) filters deleted_at is null, so
+// the course disappears from admin, member, and public views immediately, the
+// same as a real delete would look from the outside. The thumbnail file is
+// deliberately left in Storage (not removed, unlike the old hard delete) since
+// the row it belongs to still exists.
+export async function deleteCourse(id) {
+  const { error } = await supabase.from('courses').update({ deleted_at: new Date().toISOString() }).eq('id', id)
   if (error) throw error
-  if (thumbnailPath) {
-    await supabase.storage.from('course-thumbnails').remove([thumbnailPath])
+}
+
+// Copies a course's own fields into a new draft course — status is always
+// forced to 'draft' regardless of the source's status, and its episodes
+// (course_lessons) and resources are deliberately NOT copied, leaving an
+// empty course for the admin to fill in. featured is forced off so the fresh,
+// still-empty draft never displaces the real course as the library's hero.
+// Slug collision-avoidance mirrors the loop migration 0021 uses to backfill
+// slugs: try the base slug, then -2, -3, ... until one isn't already in use
+// by a live (non-deleted) course.
+export async function duplicateCourse(id) {
+  const courses = await adminListCourses()
+  const source = courses.find((c) => c.id === id)
+  if (!source) throw new Error('Course not found.')
+
+  const baseSlug =
+    (source.slug || source.title || 'course')
+      .toString()
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'course'
+
+  let slug = baseSlug
+  let suffix = 2
+  for (;;) {
+    const { data, error } = await supabase
+      .from('courses')
+      .select('id')
+      .eq('slug', slug)
+      .is('deleted_at', null)
+      .limit(1)
+    if (error) throw error
+    if (!data || data.length === 0) break
+    slug = `${baseSlug}-${suffix}`
+    suffix += 1
   }
+
+  const { data: userData } = await supabase.auth.getUser()
+  const { data, error } = await supabase
+    .from('courses')
+    .insert({
+      title: `${source.title} (copy)`,
+      description: source.description,
+      category: source.category,
+      category_id: source.category_id,
+      duration_label: source.duration_label,
+      featured: false,
+      price_cents: source.price_cents,
+      stripe_price_id: source.stripe_price_id,
+      stripe_product_id: source.stripe_product_id,
+      visible_tiers: source.visible_tiers,
+      thumbnail_path: source.thumbnail_path,
+      video_url: source.video_url,
+      slug,
+      short_description: source.short_description,
+      is_special_program: source.is_special_program,
+      status: 'draft',
+      access_mode: source.access_mode,
+      weeks: source.weeks,
+      level: source.level,
+      language: source.language,
+      learning_outcomes: source.learning_outcomes,
+      prerequisites: source.prerequisites,
+      created_by: userData.user?.id ?? null,
+    })
+    .select('id')
+    .single()
+  if (error) throw error
+  return data
 }
