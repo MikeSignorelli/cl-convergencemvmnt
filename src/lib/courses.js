@@ -27,6 +27,7 @@ export async function createCourse({
   title,
   description,
   category,
+  categoryId,
   durationLabel,
   featured,
   priceCents,
@@ -40,6 +41,7 @@ export async function createCourse({
     title,
     description: description || null,
     category: category || null,
+    category_id: categoryId || null,
     duration_label: durationLabel || null,
     featured: !!featured,
     price_cents: priceCents || 0,
@@ -60,6 +62,7 @@ export async function updateCourse(id, fields) {
   if ('title' in fields) patch.title = fields.title
   if ('description' in fields) patch.description = fields.description || null
   if ('category' in fields) patch.category = fields.category || null
+  if ('categoryId' in fields) patch.category_id = fields.categoryId || null
   if ('durationLabel' in fields) patch.duration_label = fields.durationLabel || null
   if ('featured' in fields) patch.featured = !!fields.featured
   if ('priceCents' in fields) patch.price_cents = fields.priceCents || 0

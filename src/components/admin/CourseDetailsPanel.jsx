@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { updateCourse, uploadCourseThumbnail, courseThumbnailUrl } from '../../lib/courses'
+import { listCategories, createCategory } from '../../lib/courseCategories'
+
+const ADD_NEW_CATEGORY = '__add_new__'
 
 const TIERS = ['disciple', 'leader', 'pastor']
 const inputCls = 'w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none'
@@ -8,7 +11,11 @@ const labelCls = 'mb-[7px] block text-[11px] font-semibold uppercase tracking-[0
 export default function CourseDetailsPanel({ course, onSaved }) {
   const [title, setTitle] = useState(course.title || '')
   const [description, setDescription] = useState(course.description || '')
-  const [category, setCategory] = useState(course.category || '')
+  const [categories, setCategories] = useState([])
+  const [categoryId, setCategoryId] = useState(course.category_id || '')
+  const [addingCategory, setAddingCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [categoryError, setCategoryError] = useState('')
   const [durationLabel, setDurationLabel] = useState(course.duration_label || '')
   const [featured, setFeatured] = useState(!!course.featured)
   const [price, setPrice] = useState(course.price_cents ? (course.price_cents / 100).toString() : '')
@@ -21,8 +28,43 @@ export default function CourseDetailsPanel({ course, onSaved }) {
 
   const currentThumb = courseThumbnailUrl(course.thumbnail_path)
 
+  useEffect(() => {
+    let cancelled = false
+    listCategories()
+      .then((list) => { if (!cancelled) setCategories(list) })
+      .catch((err) => setCategoryError(err.message || 'Could not load categories.'))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   function toggleTier(tier) {
     setVisibleTiers((prev) => (prev.includes(tier) ? prev.filter((t) => t !== tier) : [...prev, tier]))
+  }
+
+  function handleCategorySelect(e) {
+    const value = e.target.value
+    if (value === ADD_NEW_CATEGORY) {
+      setCategoryError('')
+      setAddingCategory(true)
+      return
+    }
+    setAddingCategory(false)
+    setCategoryId(value)
+  }
+
+  async function handleCreateCategory() {
+    setCategoryError('')
+    if (!newCategoryName.trim()) return
+    try {
+      const created = await createCategory(newCategoryName)
+      setCategories((prev) => [...prev, created])
+      setCategoryId(created.id)
+      setNewCategoryName('')
+      setAddingCategory(false)
+    } catch (err) {
+      setCategoryError(err.message || 'Could not create this category.')
+    }
   }
 
   async function handleSubmit(e) {
@@ -33,10 +75,24 @@ export default function CourseDetailsPanel({ course, onSaved }) {
     if (visibleTiers.length === 0) return setError('Select at least one tier.')
     setSubmitting(true)
     try {
+      // Write-through: the selected category's NAME also goes into the
+      // legacy free-text `category` column (0014) alongside the new
+      // `categoryId` FK, so CourseLibrary.jsx / Programs.jsx and anywhere
+      // else that still reads courses.category keep working unchanged. Falls
+      // back to the course's existing text if the dropdown selection wasn't
+      // touched and hasn't finished loading yet / no longer matches a known
+      // category, so an unrelated save never blanks it out.
+      const selectedCategory = categories.find((c) => c.id === categoryId)
+      const categoryName = selectedCategory
+        ? selectedCategory.name
+        : categoryId && categoryId === course.category_id
+          ? course.category || ''
+          : ''
       const fields = {
         title: title.trim(),
         description: description.trim(),
-        category: category.trim(),
+        categoryId: categoryId || null,
+        category: categoryName,
         durationLabel: durationLabel.trim(),
         featured,
         priceCents: Math.round(parseFloat(price || '0') * 100) || 0,
@@ -70,7 +126,44 @@ export default function CourseDetailsPanel({ course, onSaved }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className={labelCls}>Category</label>
-          <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Freedom & Healing" className={inputCls} />
+          <select
+            value={addingCategory ? ADD_NEW_CATEGORY : categoryId}
+            onChange={handleCategorySelect}
+            style={{ colorScheme: 'dark' }}
+            className={inputCls}
+          >
+            <option value="">— No category —</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+            <option value={ADD_NEW_CATEGORY}>+ Add new category…</option>
+          </select>
+          {addingCategory && (
+            <div className="mt-2.5 flex items-center gap-2.5">
+              <input
+                type="text"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="New category name"
+                className="flex-1 rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[10px] font-serif text-[13.5px] text-cream outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleCreateCategory}
+                className="cursor-pointer whitespace-nowrap rounded-full bg-gold px-4 py-2 font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-ink"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAddingCategory(false); setNewCategoryName(''); setCategoryId(course.category_id || '') }}
+                className="cursor-pointer whitespace-nowrap border-none bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-cream/50"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {categoryError && <p className="mt-1.5 font-serif text-[12px] text-[#D8888A]">{categoryError}</p>}
         </div>
         <div>
           <label className={labelCls}>Duration / episodes (optional)</label>

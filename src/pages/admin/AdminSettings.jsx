@@ -5,6 +5,7 @@ import { useAuth } from '../../lib/AuthContext'
 import { supabase } from '../../lib/supabaseClient'
 import { isCommonPassword } from '../../lib/commonPasswords'
 import { fetchAppSettings, saveAppSetting, SETTING_KEYS } from '../../lib/appSettings'
+import { listCategories, createCategory, renameCategory, reorderCategories, deleteCategory } from '../../lib/courseCategories'
 
 const MIN_PASSWORD_LENGTH = 12
 
@@ -146,6 +147,201 @@ function PasswordCard() {
   )
 }
 
+// Structurally different from the single-value FIELDS below (a repeatable,
+// reorderable list rather than one key/value pair), so it's its own
+// self-contained card rather than an entry in FIELDS.
+function CourseCategoriesCard() {
+  const [categories, setCategories] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [newName, setNewName] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [editingName, setEditingName] = useState('')
+
+  async function refresh() {
+    try {
+      const list = await listCategories()
+      setCategories(list)
+    } catch (err) {
+      setError(err.message || 'Could not load categories.')
+    }
+  }
+
+  useEffect(() => {
+    refresh().finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function handleAdd() {
+    setError('')
+    if (!newName.trim()) return
+    setAdding(true)
+    try {
+      await createCategory(newName)
+      setNewName('')
+      await refresh()
+    } catch (err) {
+      setError(err.message || 'Could not add this category.')
+    }
+    setAdding(false)
+  }
+
+  function startRename(cat) {
+    setError('')
+    setEditingId(cat.id)
+    setEditingName(cat.name)
+  }
+
+  async function handleRename(id) {
+    setError('')
+    try {
+      await renameCategory(id, editingName)
+      setEditingId(null)
+      await refresh()
+    } catch (err) {
+      setError(err.message || 'Could not rename this category.')
+    }
+  }
+
+  async function handleDelete(cat) {
+    if (!window.confirm(`Delete “${cat.name}”? This can't be undone.`)) return
+    setError('')
+    try {
+      await deleteCategory(cat.id)
+      await refresh()
+    } catch (err) {
+      setError(err.message || 'Could not delete this category.')
+    }
+  }
+
+  async function move(index, dir) {
+    const other = index + dir
+    if (other < 0 || other >= categories.length) return
+    setError('')
+    const next = [...categories]
+    ;[next[index], next[other]] = [next[other], next[index]]
+    setCategories(next)
+    try {
+      await reorderCategories(next.map((c) => c.id))
+    } catch (err) {
+      setError(err.message || 'Could not reorder categories.')
+      await refresh()
+    }
+  }
+
+  return (
+    <div className="rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-5">
+      <label className="mb-1.5 block font-sans text-[13px] font-semibold uppercase tracking-[0.08em] text-cream">
+        Course categories
+      </label>
+      <p className="mb-4 font-serif text-[12.5px] text-cream/50">
+        Shown on courses in the admin editor and used to group/filter the member Course Library.
+      </p>
+
+      {error && <p className="mb-3 font-serif text-[13px] text-[#D8888A]">{error}</p>}
+
+      {loading ? (
+        <p className="font-serif text-[13.5px] text-cream/50">Loading…</p>
+      ) : (
+        <div className="mb-4 flex flex-col gap-2">
+          {categories.length === 0 && (
+            <p className="font-serif text-[13.5px] text-cream/40">No categories yet.</p>
+          )}
+          {categories.map((cat, index) => (
+            <div
+              key={cat.id}
+              className="flex items-center gap-3 rounded-[10px] border border-cream/[0.1] bg-cream/[0.03] px-3.5 py-2.5"
+            >
+              <div className="flex flex-col gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => move(index, -1)}
+                  disabled={index === 0}
+                  aria-label="Move up"
+                  className="cursor-pointer border-none bg-transparent p-0 leading-none text-cream/50 disabled:cursor-not-allowed disabled:opacity-25"
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  onClick={() => move(index, 1)}
+                  disabled={index === categories.length - 1}
+                  aria-label="Move down"
+                  className="cursor-pointer border-none bg-transparent p-0 leading-none text-cream/50 disabled:cursor-not-allowed disabled:opacity-25"
+                >
+                  ▼
+                </button>
+              </div>
+
+              {editingId === cat.id ? (
+                <>
+                  <input
+                    type="text"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    className="flex-1 rounded-[8px] border border-cream/[0.14] bg-cream/[0.04] px-3 py-[9px] font-serif text-[13.5px] text-cream outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRename(cat.id)}
+                    className="cursor-pointer whitespace-nowrap rounded-full bg-gold px-4 py-[7px] font-sans text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(null)}
+                    className="cursor-pointer whitespace-nowrap border-none bg-transparent font-sans text-[10.5px] font-semibold uppercase tracking-[0.08em] text-cream/50"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1 font-serif text-[14px] text-cream">{cat.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => startRename(cat)}
+                    className="cursor-pointer whitespace-nowrap border-none bg-transparent font-sans text-[10.5px] font-semibold uppercase tracking-[0.08em] text-cream/50"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(cat)}
+                    className="cursor-pointer whitespace-nowrap border-none bg-transparent font-sans text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#D8888A]"
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-3">
+        <input
+          type="text"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="e.g. Freedom & Healing"
+          className="flex-1 rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[14px] text-cream outline-none"
+        />
+        <button
+          type="button"
+          onClick={handleAdd}
+          disabled={adding || !newName.trim()}
+          className="cursor-pointer whitespace-nowrap rounded-full bg-gold px-5 py-2 font-sans text-[11.5px] font-semibold uppercase tracking-[0.08em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {adding ? 'Adding…' : '+ Add category'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminSettings() {
   const [values, setValues] = useState({})
   const [loading, setLoading] = useState(true)
@@ -201,6 +397,7 @@ export default function AdminSettings() {
             <div className="flex flex-col gap-6">
               {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
               <PasswordCard />
+              <CourseCategoriesCard />
               {FIELDS.map((field) => (
                 <div
                   key={field.key}
