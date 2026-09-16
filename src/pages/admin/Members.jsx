@@ -112,6 +112,7 @@ export default function Members() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('all')
+  const [query, setQuery] = useState('')
   const [viewing, setViewing] = useState(null)
   const [busyId, setBusyId] = useState(null)
   const [rowError, setRowError] = useState('')
@@ -131,7 +132,12 @@ export default function Members() {
     load()
   }, [])
 
-  const visible = filter === 'all' ? members : members.filter((m) => m.tier === filter)
+  const q = query.trim().toLowerCase()
+  const visible = members.filter(
+    (m) =>
+      (filter === 'all' || m.tier === filter) &&
+      (!q || `${m.display_name || ''} ${m.username || ''} ${m.email || ''}`.toLowerCase().includes(q))
+  )
 
   function previewTier(tier) {
     setPreviewTier(tier)
@@ -157,7 +163,7 @@ export default function Members() {
     <div className="flex min-h-screen bg-ink font-sans text-cream">
       <MemberSidebar active="/admin/members" />
       <div className="flex flex-1 flex-col min-w-0">
-        <MemberTopbar searchPlaceholder="Search members…" />
+        <MemberTopbar searchPlaceholder="Search members…" search={query} onSearch={setQuery} />
         <main className="mx-auto w-full max-w-[1180px] flex-1 px-8 pb-16 pt-9">
           <h1 className="mb-1 font-sans text-[28px] font-bold uppercase leading-[1.05] text-white">
             Members
@@ -236,7 +242,7 @@ export default function Members() {
                 {!loading && !error && visible.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-5 py-6 text-center font-serif text-cream/50">
-                      No members in this tier yet.
+                      {q ? `No members match “${query}”.` : 'No members in this tier yet.'}
                     </td>
                   </tr>
                 )}

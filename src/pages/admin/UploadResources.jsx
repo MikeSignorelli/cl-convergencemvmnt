@@ -19,6 +19,7 @@ export default function UploadResources() {
   const [showForm, setShowForm] = useState(false)
   const fileInputRef = useRef(null)
   const [resources, setResources] = useState([])
+  const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -114,6 +115,11 @@ export default function UploadResources() {
     setSubmitting(false)
   }
 
+  const searchQ = query.trim().toLowerCase()
+  const visibleResources = searchQ
+    ? resources.filter((r) => `${r.title || ''} ${r.description || ''}`.toLowerCase().includes(searchQ))
+    : resources
+
   async function handleDelete(resource) {
     try {
       await deleteResource(resource.id, resource.file_path)
@@ -142,6 +148,8 @@ export default function UploadResources() {
       <div className="flex flex-1 flex-col min-w-0">
         <MemberTopbar
           searchPlaceholder="Search resources…"
+          search={query}
+          onSearch={setQuery}
           actionLabel={isAdmin ? 'Upload Resources' : undefined}
           actionOnClick={() => setShowForm((v) => !v)}
         />
@@ -279,13 +287,15 @@ export default function UploadResources() {
                     <td colSpan={isAdmin ? 5 : 4} className="px-5 py-6 text-center font-serif text-cream/50">Loading…</td>
                   </tr>
                 )}
-                {!loading && resources.length === 0 && (
+                {!loading && visibleResources.length === 0 && (
                   <tr>
-                    <td colSpan={isAdmin ? 5 : 4} className="px-5 py-6 text-center font-serif text-cream/50">No resources yet.</td>
+                    <td colSpan={isAdmin ? 5 : 4} className="px-5 py-6 text-center font-serif text-cream/50">
+                      {resources.length === 0 ? 'No resources yet.' : `No resources match “${query}”.`}
+                    </td>
                   </tr>
                 )}
                 {!loading &&
-                  resources.map((r) => (
+                  visibleResources.map((r) => (
                     <tr key={r.id} className="border-b border-cream/[0.06] last:border-b-0">
                       <td className="px-5 py-3.5 font-sans text-sm font-medium">{r.title}</td>
                       <td className="px-5 py-3.5 font-serif text-sm text-cream/60">

@@ -10,6 +10,7 @@ export default function UploadLiveSessions() {
   const { isAdmin } = useAuth()
   const [showForm, setShowForm] = useState(false)
   const [sessions, setSessions] = useState([])
+  const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -92,12 +93,19 @@ export default function UploadLiveSessions() {
     }
   }
 
+  const q = query.trim().toLowerCase()
+  const visible = q
+    ? sessions.filter((s) => `${s.title || ''} ${s.description || ''}`.toLowerCase().includes(q))
+    : sessions
+
   return (
     <div className="flex min-h-screen bg-ink font-sans text-cream">
       <MemberSidebar active="/live-sessions" />
       <div className="flex flex-1 flex-col min-w-0">
         <MemberTopbar
           searchPlaceholder="Search live sessions…"
+          search={query}
+          onSearch={setQuery}
           actionLabel={isAdmin ? 'Upload Live Sessions' : undefined}
           actionOnClick={() => setShowForm((v) => !v)}
         />
@@ -214,13 +222,15 @@ export default function UploadLiveSessions() {
                     <td colSpan={isAdmin ? 4 : 3} className="px-5 py-6 text-center font-serif text-cream/50">Loading…</td>
                   </tr>
                 )}
-                {!loading && sessions.length === 0 && (
+                {!loading && visible.length === 0 && (
                   <tr>
-                    <td colSpan={isAdmin ? 4 : 3} className="px-5 py-6 text-center font-serif text-cream/50">No live sessions yet.</td>
+                    <td colSpan={isAdmin ? 4 : 3} className="px-5 py-6 text-center font-serif text-cream/50">
+                      {sessions.length === 0 ? 'No live sessions yet.' : `No sessions match “${query}”.`}
+                    </td>
                   </tr>
                 )}
                 {!loading &&
-                  sessions.map((s) => (
+                  visible.map((s) => (
                     <tr key={s.id} className="border-b border-cream/[0.06] last:border-b-0">
                       <td className="px-5 py-3.5 font-sans text-sm font-medium">{s.title}</td>
                       <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{s.visible_tiers.join(', ')}</td>

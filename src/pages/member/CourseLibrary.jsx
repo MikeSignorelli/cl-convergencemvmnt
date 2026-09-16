@@ -59,6 +59,7 @@ export default function CourseLibrary() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -101,12 +102,16 @@ export default function CourseLibrary() {
   }, [courses])
 
   const groups = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const match = (c) => !q || `${c.title || ''} ${c.category || ''} ${c.description || ''}`.toLowerCase().includes(q)
     const cats = activeCategory === 'All' ? categories : [activeCategory]
     return cats.map((cat) => ({
       category: cat,
-      courses: courses.filter((c) => (c.category || 'More courses') === cat),
+      courses: courses.filter((c) => (c.category || 'More courses') === cat && match(c)),
     }))
-  }, [courses, categories, activeCategory])
+  }, [courses, categories, activeCategory, query])
+
+  const totalVisible = useMemo(() => groups.reduce((n, g) => n + g.courses.length, 0), [groups])
 
   const featured = useMemo(
     () => courses.find((c) => c.featured) || courses[0] || null,
@@ -119,6 +124,8 @@ export default function CourseLibrary() {
       <div className="flex flex-1 flex-col min-w-0">
         <MemberTopbar
           searchPlaceholder="Search courses…"
+          search={query}
+          onSearch={setQuery}
           actionLabel={isAdmin ? 'Upload Courses' : undefined}
           actionOnClick={() => navigate('/admin/courses')}
         />
@@ -190,6 +197,9 @@ export default function CourseLibrary() {
           <div className="flex flex-col gap-[38px] px-10 pt-9">
             {!loading && !error && courses.length === 0 && (
               <p className="font-serif text-cream/50">No courses published yet.</p>
+            )}
+            {!loading && !error && courses.length > 0 && totalVisible === 0 && (
+              <p className="font-serif text-cream/50">No courses match “{query}”.</p>
             )}
             {!loading &&
               !error &&
