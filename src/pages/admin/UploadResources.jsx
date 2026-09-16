@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
 import { useAuth } from '../../lib/AuthContext'
@@ -89,13 +89,21 @@ export default function UploadResources() {
     setSubmitting(true)
     try {
       let filePath = null
-      if (file) filePath = await uploadResourceFile(file)
+      let fileSize = null
+      let mimeType = null
+      if (file) {
+        filePath = await uploadResourceFile(file)
+        fileSize = file.size
+        mimeType = file.type
+      }
 
       await createResource({
         title: title.trim(),
         description: description.trim(),
         visibleTiers,
         filePath,
+        fileSize,
+        mimeType,
         externalUrl: externalUrl.trim() || null,
         courseId: courseId || null,
       })
@@ -119,6 +127,29 @@ export default function UploadResources() {
   const visibleResources = searchQ
     ? resources.filter((r) => `${r.title || ''} ${r.description || ''}`.toLowerCase().includes(searchQ))
     : resources
+
+  // Group by course so course-specific materials (gated by course access) are
+  // visually distinguishable from general, tier-gated resources -- each group
+  // sorted by position (fetch order already is, this just makes it explicit
+  // per group after the split). 'general' (course_id null) always sorts first;
+  // course groups follow alphabetically by course title.
+  const groupedResources = useMemo(() => {
+    const groups = new Map()
+    visibleResources.forEach((r) => {
+      const key = r.course_id || 'general'
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key).push(r)
+    })
+    const entries = Array.from(groups.entries())
+    entries.forEach(([, list]) => list.sort((a, b) => (a.position ?? 0) - (b.position ?? 0)))
+    entries.sort(([keyA], [keyB]) => {
+      if (keyA === 'general') return -1
+      if (keyB === 'general') return 1
+      return (courseTitle(keyA) || '').localeCompare(courseTitle(keyB) || '')
+    })
+    return entries
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleResources, courses])
 
   async function handleDelete(resource) {
     try {
@@ -240,6 +271,7 @@ export default function UploadResources() {
                 <input
                   ref={fileInputRef}
                   type="file"
+                  accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                   onChange={handleFileChange}
                   className="w-full font-serif text-[13.5px] text-cream/70"
                 />
@@ -295,36 +327,45 @@ export default function UploadResources() {
                   </tr>
                 )}
                 {!loading &&
-                  visibleResources.map((r) => (
-                    <tr key={r.id} className="border-b border-cream/[0.06] last:border-b-0">
-                      <td className="px-5 py-3.5 font-sans text-sm font-medium">{r.title}</td>
-                      <td className="px-5 py-3.5 font-serif text-sm text-cream/60">
-                        {r.course_id ? (courseTitle(r.course_id) || 'Course') : r.visible_tiers.join(', ')}
-                      </td>
-                      <td className="px-5 py-3.5 font-serif text-sm text-cream/60">
-                        {r.file_path ? 'File' : 'Link'}
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleOpen(r)}
-                          className="cursor-pointer border-none bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-gold"
-                        >
-                          Open
-                        </button>
-                      </td>
-                      {isAdmin && (
-                      <td className="px-5 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(r)}
-                          className="cursor-pointer border-none bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-[#D8888A]"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                      )}
-                    </tr>
+                  groupedResources.map(([key, list]) => (
+                    <Fragment key={key}>
+                      <tr className="border-b border-cream/[0.09] bg-cream/[0.02]">
+                        <td colSpan={isAdmin ? 5 : 4} className="px-5 py-2.5 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-gold/80">
+                          {key === 'general' ? 'General (tier-gated)' : `Course: ${courseTitle(key) || 'Untitled course'}`}
+                        </td>
+                      </tr>
+                      {list.map((r) => (
+                        <tr key={r.id} className="border-b border-cream/[0.06] last:border-b-0">
+                          <td className="px-5 py-3.5 font-sans text-sm font-medium">{r.title}</td>
+                          <td className="px-5 py-3.5 font-serif text-sm text-cream/60">
+                            {r.course_id ? (courseTitle(r.course_id) || 'Course') : r.visible_tiers.join(', ')}
+                          </td>
+                          <td className="px-5 py-3.5 font-serif text-sm text-cream/60">
+                            {r.file_path ? 'File' : 'Link'}
+                          </td>
+                          <td className="px-5 py-3.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleOpen(r)}
+                              className="cursor-pointer border-none bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-gold"
+                            >
+                              Open
+                            </button>
+                          </td>
+                          {isAdmin && (
+                          <td className="px-5 py-3.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(r)}
+                              className="cursor-pointer border-none bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-[#D8888A]"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                          )}
+                        </tr>
+                      ))}
+                    </Fragment>
                   ))}
               </tbody>
             </table>
