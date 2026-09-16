@@ -36,6 +36,15 @@ export async function createCourse({
   visibleTiers,
   thumbnailPath,
   videoUrl,
+  slug,
+  shortDescription,
+  isSpecialProgram,
+  status,
+  weeks,
+  level,
+  language,
+  learningOutcomes,
+  prerequisites,
 }) {
   const { data: userData } = await supabase.auth.getUser()
   const { data, error } = await supabase.from('courses').insert({
@@ -51,6 +60,15 @@ export async function createCourse({
     visible_tiers: visibleTiers,
     thumbnail_path: thumbnailPath || null,
     video_url: videoUrl || null,
+    slug: slug || null,
+    short_description: shortDescription || null,
+    is_special_program: !!isSpecialProgram,
+    status: status || 'published',
+    weeks: weeks || null,
+    level: level || null,
+    language: language || null,
+    learning_outcomes: learningOutcomes || null,
+    prerequisites: prerequisites || null,
     created_by: userData.user?.id ?? null,
   }).select('id').single()
   if (error) throw error
@@ -72,8 +90,48 @@ export async function updateCourse(id, fields) {
   if ('stripeProductId' in fields) patch.stripe_product_id = fields.stripeProductId || null
   if ('visibleTiers' in fields) patch.visible_tiers = fields.visibleTiers
   if ('thumbnailPath' in fields) patch.thumbnail_path = fields.thumbnailPath || null
+  if ('slug' in fields) patch.slug = fields.slug || null
+  if ('shortDescription' in fields) patch.short_description = fields.shortDescription || null
+  if ('isSpecialProgram' in fields) patch.is_special_program = !!fields.isSpecialProgram
+  if ('status' in fields) patch.status = fields.status || 'published'
+  if ('weeks' in fields) patch.weeks = fields.weeks || null
+  if ('level' in fields) patch.level = fields.level || null
+  if ('language' in fields) patch.language = fields.language || null
+  if ('learningOutcomes' in fields) patch.learning_outcomes = fields.learningOutcomes || null
+  if ('prerequisites' in fields) patch.prerequisites = fields.prerequisites || null
   const { error } = await supabase.from('courses').update(patch).eq('id', id)
   if (error) throw error
+}
+
+// Pre-save uniqueness check for the admin slug field (courses_slug_unique_idx,
+// migration 0021, is a partial unique index over live/undeleted rows) — lets
+// the form show a clear inline error instead of surfacing the raw Postgres
+// unique-violation. `excludeId` is the course being saved, so it doesn't
+// collide with its own current slug.
+export async function isCourseSlugTaken(slug, excludeId) {
+  if (!slug) return false
+  const { data, error } = await supabase
+    .from('courses')
+    .select('id')
+    .eq('slug', slug)
+    .is('deleted_at', null)
+    .neq('id', excludeId)
+    .limit(1)
+  if (error) throw error
+  return (data || []).length > 0
+}
+
+// Powers the admin panel's read-only "Duration & episodes" summary and the
+// guard against decreasing `weeks` below a week that still has episodes —
+// both just need each lesson's duration_seconds/week_number, so one query
+// serves both instead of fetching twice.
+export async function fetchCourseLessonsStats(courseId) {
+  const { data, error } = await supabase
+    .from('course_lessons')
+    .select('duration_seconds, week_number')
+    .eq('course_id', courseId)
+  if (error) throw error
+  return data || []
 }
 
 // Deliberately excludes video_url: browsing is open to everyone, including
