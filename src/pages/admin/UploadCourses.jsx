@@ -4,10 +4,20 @@ import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
 import { adminListCourses, deleteCourse, duplicateCourse } from '../../lib/courses'
 import { formatPrice } from '../../lib/billing'
+import { fetchUnresolvedCourseHealthFlags, runCourseHealthCheck } from '../../lib/courseHealth'
 
 const STATUSES = ['draft', 'published', 'archived']
 const PAGE_SIZE = 20
 const selectCls = 'w-auto cursor-pointer rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-2.5 font-serif text-[13.5px] text-cream outline-none'
+
+// Labels for course_health_flags.flag_type (see migration 0029 and the
+// course-health-check Edge Function) — shown in the banner below.
+const HEALTH_FLAG_LABELS = {
+  missing_video: 'Missing or invalid video',
+  upcoming_no_video: 'Releasing soon — no video yet',
+  broken_link: 'Vimeo link appears broken',
+}
+const HEALTH_FLAGS_PREVIEW_COUNT = 6
 
 function capitalize(word) {
   return word ? word.charAt(0).toUpperCase() + word.slice(1) : word
@@ -43,6 +53,12 @@ export default function UploadCourses() {
   const [page, setPage] = useState(1)
   const [duplicatingId, setDuplicatingId] = useState(null)
 
+  // Course-health banner (task: course-health-check) — unresolved flags from
+  // the most recent scheduled or manual run (see src/lib/courseHealth.js).
+  const [healthFlags, setHealthFlags] = useState([])
+  const [checkingHealth, setCheckingHealth] = useState(false)
+  const [healthCheckMessage, setHealthCheckMessage] = useState('')
+
   async function refresh() {
     setLoading(true)
     try {
@@ -52,9 +68,39 @@ export default function UploadCourses() {
     }
     setLoading(false)
   }
+  async function refreshHealthFlags() {
+    try {
+      setHealthFlags(await fetchUnresolvedCourseHealthFlags())
+    } catch {
+      // Non-critical — the banner just stays empty/stale rather than
+      // blocking the course list itself.
+    }
+  }
   useEffect(() => {
     refresh()
+    refreshHealthFlags()
   }, [])
+
+  // Manual "Check Vimeo links now" trigger (task: on-demand health check) —
+  // runs the same Edge Function the external schedule calls, authenticated
+  // as this admin instead of via the cron shared secret (see
+  // course-health-check/index.ts's top-of-file note).
+  async function handleCheckHealth() {
+    setCheckingHealth(true)
+    setHealthCheckMessage('')
+    try {
+      const result = await runCourseHealthCheck()
+      const total =
+        (result?.flagged?.missing_video || 0) +
+        (result?.flagged?.upcoming_no_video || 0) +
+        (result?.flagged?.broken_link || 0)
+      setHealthCheckMessage(total === 0 ? 'No issues found.' : `Flagged ${total} episode${total === 1 ? '' : 's'} — see below.`)
+      await refreshHealthFlags()
+    } catch (err) {
+      setHealthCheckMessage(err.message || 'Could not run the health check.')
+    }
+    setCheckingHealth(false)
+  }
 
   async function handleDelete(course) {
     if (!window.confirm(`Remove “${course.title}” from the site? It disappears everywhere immediately, but nothing is permanently deleted.`)) return
@@ -134,13 +180,68 @@ export default function UploadCourses() {
                 Click a course to manage its details, episodes, and resources.
               </p>
             </div>
-            <Link
-              to="/admin/courses/new"
-              className="shrink-0 cursor-pointer rounded-full border-none bg-gold px-6 py-3 font-sans text-[12.5px] font-semibold uppercase tracking-[0.12em] text-ink no-underline"
-            >
-              + New course
-            </Link>
+            <div className="flex shrink-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={handleCheckHealth}
+                disabled={checkingHealth}
+                className="cursor-pointer whitespace-nowrap rounded-full border border-cream/[0.16] bg-transparent px-5 py-3 font-sans text-[12.5px] font-semibold uppercase tracking-[0.1em] text-cream/80 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {checkingHealth ? 'Checking…' : 'Check Vimeo links'}
+              </button>
+              <Link
+                to="/admin/courses/new"
+                className="cursor-pointer rounded-full border-none bg-gold px-6 py-3 font-sans text-[12.5px] font-semibold uppercase tracking-[0.12em] text-ink no-underline"
+              >
+                + New course
+              </Link>
+            </div>
           </div>
+
+          {healthCheckMessage && (
+            <p className="mb-4 font-serif text-[13px] text-cream/60">{healthCheckMessage}</p>
+          )}
+
+          {/* Course-health banner: unresolved course_health_flags from the latest
+              scheduled or manual run (see course-health-check + migration 0029).
+              Styled after the member dashboard's "finish your profile" nudge —
+              a warm/attention gold, not destructive red, since nothing here is
+              broken beyond an admin's attention. */}
+          {healthFlags.length > 0 && (
+            <div className="mb-6 rounded-cv-lg border border-gold/30 bg-gold/[0.08] px-5 py-4">
+              <div className="mb-3 flex items-center gap-2.5">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E9CF9C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <span className="font-sans text-[12.5px] font-semibold uppercase tracking-[0.08em] text-[#E9CF9C]">
+                  {healthFlags.length} episode{healthFlags.length === 1 ? '' : 's'} need attention
+                </span>
+              </div>
+              <ul className="flex flex-col gap-1.5">
+                {healthFlags.slice(0, HEALTH_FLAGS_PREVIEW_COUNT).map((f) => (
+                  <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 font-serif text-[13.5px] text-cream/75">
+                    <span>
+                      <span className="text-cream/90">{f.courseTitle}</span> — {f.lessonTitle}
+                      <span className="text-cream/50"> · {HEALTH_FLAG_LABELS[f.flagType] || f.flagType}</span>
+                    </span>
+                    <Link
+                      to={`/admin/courses/${f.courseId}/edit`}
+                      className="shrink-0 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-gold no-underline"
+                    >
+                      View episodes →
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {healthFlags.length > HEALTH_FLAGS_PREVIEW_COUNT && (
+                <p className="mt-2 font-serif text-[12.5px] text-cream/50">
+                  +{healthFlags.length - HEALTH_FLAGS_PREVIEW_COUNT} more
+                </p>
+              )}
+            </div>
+          )}
 
           {error && <p className="mb-4 font-serif text-[13px] text-[#D8888A]">{error}</p>}
 

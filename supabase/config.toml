@@ -13,3 +13,18 @@ verify_jwt = true
 # (see the function). verify_jwt off so the cron/pg_net call needn't carry a JWT.
 [functions.send-setup-reminders]
 verify_jwt = false
+
+# Scheduling model: same as send-setup-reminders above — no in-repo cron
+# config, called externally (Supabase Cron or an external scheduler) on a
+# recurring basis. UNLIKE send-setup-reminders, verify_jwt is ON here: this
+# function has a second caller besides the scheduler — an admin's browser,
+# triggering an on-demand check from the course list ("Check Vimeo links
+# now") — and it accepts EITHER the scheduler's x-cron-secret header OR that
+# admin's own JWT (see the function's top-of-file comment for why one
+# function does both instead of splitting into a second admin-only
+# function). The scheduler satisfies verify_jwt with the project's anon key
+# in its Authorization header, same as any other authenticated call to this
+# gateway; the function's own code below the gateway is what actually
+# distinguishes "the cron job" from "an admin".
+[functions.course-health-check]
+verify_jwt = true
