@@ -58,3 +58,66 @@ stripe trigger checkout.session.completed
 Once this is done, `src/lib/billing.js`'s `startMembershipCheckout()` and
 `startCoursePurchase()` will work exactly as written — nothing in the
 frontend needs to change.
+
+## 6. Other Edge Functions in this project
+
+Two more functions live alongside the Stripe ones above, for admin/course
+management. Neither is Stripe-webhook-shaped (no signature to verify), so
+they're documented separately here rather than folded into the numbered
+steps above.
+
+### list-stripe-products
+
+Lists active Stripe Prices (with each Price's Product name) so the admin
+course editor can offer a live dropdown instead of a free-text Stripe Price
+ID field.
+
+- **Deploy:** `supabase functions deploy list-stripe-products`
+- **Secrets:** none new — it reads the existing `STRIPE_SECRET_KEY` from
+  step 2 above. Nothing else to set.
+- **Auth:** called with the signed-in admin's own JWT (`verify_jwt = true`),
+  purely to identify who's asking. It then does its own server-side check
+  that the caller's `profiles.tier` is `'admin'` before ever touching the
+  Stripe API — this is the first Edge Function in the codebase to enforce
+  an admin gate itself rather than leaning on RLS. A non-admin JWT gets a
+  403; an unauthenticated call gets a 401.
+- **Not live-testable** without real Stripe keys, same as
+  `create-checkout-session` / `stripe-webhook` above.
+
+### course-health-check
+
+A scheduled sweep over `course_lessons` that flags episodes an admin should
+look at: a missing/unparseable video link, an episode releasing soon with
+no video yet, or a previously-good Vimeo link that no longer resolves.
+Findings are written to `course_health_flags` (migration 0029), which the
+admin course list reads to show a health banner.
+
+- **Deploy:** `supabase functions deploy course-health-check`
+- **Set the secret** (Supabase Dashboard → Edge Functions → Secrets, or CLI):
+
+  ```bash
+  supabase secrets set COURSE_HEALTH_SECRET=some-long-random-string
+  ```
+
+- **Auth — two ways in:**
+  - the external scheduler sends the `x-cron-secret` header, checked
+    against `COURSE_HEALTH_SECRET` above — the same shared-secret pattern
+    `send-setup-reminders` uses with its own `SETUP_REMINDER_SECRET`; or
+  - an admin's browser calls it directly for an on-demand run (the "Check
+    Vimeo links now" button on the admin course list), authenticated with
+    that admin's normal Supabase Auth JWT and the same `profiles.tier ===
+    'admin'` check `list-stripe-products` uses above.
+
+  Because of that second caller, `verify_jwt = true` for this function
+  (unlike `send-setup-reminders`, which is `false`) — the gateway just
+  requires *some* valid JWT (the scheduler's own anon key satisfies that),
+  and the function's code decides whether the caller is the cron job or an
+  admin.
+- **Scheduling:** no in-repo cron config — call it on a recurring basis from
+  the Supabase Dashboard's Cron scheduler (or any external scheduler) the
+  same way `send-setup-reminders` is scheduled, POSTing to
+  `https://<project-ref>.supabase.co/functions/v1/course-health-check` with
+  the `x-cron-secret` header set to `COURSE_HEALTH_SECRET`.
+- **Query/body options:** `dryRun` (bool) computes and returns findings
+  without writing them; `daysAhead` (int, default 3) sets the "upcoming
+  episode" notice window in days.
