@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
-import { adminListCourses, createCourse, deleteCourse, uploadCourseThumbnail } from '../../lib/courses'
+import { adminListCourses, createCourse, updateCourse, deleteCourse, uploadCourseThumbnail } from '../../lib/courses'
 import { formatPrice } from '../../lib/billing'
 
 const TIERS = ['disciple', 'leader', 'pastor']
@@ -21,6 +21,36 @@ export default function UploadCourses() {
   const [thumbnail, setThumbnail] = useState(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+
+  function resetForm() {
+    setEditingId(null)
+    setTitle('')
+    setDescription('')
+    setCategory('')
+    setDurationLabel('')
+    setFeatured(false)
+    setPrice('')
+    setStripePriceId('')
+    setVisibleTiers(TIERS)
+    setThumbnail(null)
+    setError('')
+  }
+
+  function startEdit(c) {
+    setEditingId(c.id)
+    setTitle(c.title || '')
+    setDescription(c.description || '')
+    setCategory(c.category || '')
+    setDurationLabel(c.duration_label || '')
+    setFeatured(!!c.featured)
+    setPrice(c.price_cents ? (c.price_cents / 100).toString() : '')
+    setStripePriceId(c.stripe_price_id || '')
+    setVisibleTiers(c.visible_tiers && c.visible_tiers.length ? c.visible_tiers : TIERS)
+    setThumbnail(null)
+    setError('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   async function refresh() {
     setLoading(true)
@@ -57,13 +87,7 @@ export default function UploadCourses() {
 
     setSubmitting(true)
     try {
-      let thumbnailPath = null
-      if (thumbnail) {
-        const uploaded = await uploadCourseThumbnail(thumbnail)
-        thumbnailPath = uploaded.path
-      }
-
-      await createCourse({
+      const fields = {
         title: title.trim(),
         description: description.trim(),
         category: category.trim(),
@@ -72,18 +96,17 @@ export default function UploadCourses() {
         priceCents: Math.round(parseFloat(price || '0') * 100) || 0,
         stripePriceId: stripePriceId.trim(),
         visibleTiers,
-        thumbnailPath,
-      })
+      }
+      // Only touch the thumbnail when a new file is chosen (keeps the current one on edit).
+      if (thumbnail) {
+        const uploaded = await uploadCourseThumbnail(thumbnail)
+        fields.thumbnailPath = uploaded.path
+      }
 
-      setTitle('')
-      setDescription('')
-      setCategory('')
-      setDurationLabel('')
-      setFeatured(false)
-      setPrice('')
-      setStripePriceId('')
-      setVisibleTiers(TIERS)
-      setThumbnail(null)
+      if (editingId) await updateCourse(editingId, fields)
+      else await createCourse(fields)
+
+      resetForm()
       await refresh()
     } catch (err) {
       setError(err.message || 'Could not save this course.')
@@ -247,13 +270,24 @@ export default function UploadCourses() {
 
             {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-fit cursor-pointer rounded-full border-none bg-gold px-8 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {submitting ? 'Saving…' : 'Add course'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-fit cursor-pointer rounded-full border-none bg-gold px-8 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting ? 'Saving…' : editingId ? 'Save changes' : 'Add course'}
+              </button>
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="cursor-pointer rounded-full border border-cream/20 bg-transparent px-6 py-3 font-sans text-[12px] font-semibold uppercase tracking-[0.12em] text-cream/70"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
           </form>
 
           <div className="overflow-hidden rounded-cv-lg border border-cream/[0.09]">
@@ -301,6 +335,13 @@ export default function UploadCourses() {
                         </Link>
                       </td>
                       <td className="px-5 py-3.5 text-right">
+                        <button
+                          type="button"
+                          onClick={() => startEdit(c)}
+                          className="mr-4 cursor-pointer border-none bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-gold"
+                        >
+                          Edit
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleDelete(c)}

@@ -52,6 +52,23 @@ export async function createCourse({
   if (error) throw error
 }
 
+// Edit an existing course. Only the fields passed are changed — omit
+// thumbnailPath to keep the current thumbnail (pass it only on a new upload).
+export async function updateCourse(id, fields) {
+  const patch = {}
+  if ('title' in fields) patch.title = fields.title
+  if ('description' in fields) patch.description = fields.description || null
+  if ('category' in fields) patch.category = fields.category || null
+  if ('durationLabel' in fields) patch.duration_label = fields.durationLabel || null
+  if ('featured' in fields) patch.featured = !!fields.featured
+  if ('priceCents' in fields) patch.price_cents = fields.priceCents || 0
+  if ('stripePriceId' in fields) patch.stripe_price_id = fields.stripePriceId || null
+  if ('visibleTiers' in fields) patch.visible_tiers = fields.visibleTiers
+  if ('thumbnailPath' in fields) patch.thumbnail_path = fields.thumbnailPath || null
+  const { error } = await supabase.from('courses').update(patch).eq('id', id)
+  if (error) throw error
+}
+
 // Deliberately excludes video_url: browsing is open to everyone, including
 // anon (see migration 0015's courses SELECT policy — needed for the public
 // /programs catalog), but the actual video is only ever fetched through

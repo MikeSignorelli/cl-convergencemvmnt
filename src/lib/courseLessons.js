@@ -65,6 +65,28 @@ export async function createLesson({
   if (error) throw error
 }
 
+// Edit an existing episode. Only the fields passed change — omit thumbnailPath
+// to keep the current thumbnail.
+export async function updateLesson(id, fields) {
+  const patch = {}
+  if ('title' in fields) patch.title = fields.title
+  if ('description' in fields) patch.description = fields.description || null
+  if ('extraInfo' in fields) patch.extra_info = fields.extraInfo || null
+  if ('videoUrl' in fields) patch.video_url = fields.videoUrl
+  if ('thumbnailPath' in fields) patch.thumbnail_path = fields.thumbnailPath || null
+  if ('durationLabel' in fields) patch.duration_label = fields.durationLabel || null
+  if ('releaseAt' in fields) patch.release_at = fields.releaseAt || null
+  if ('position' in fields) patch.position = fields.position
+  const { error } = await supabase.from('course_lessons').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+// Swap the order of two episodes (reorder up/down).
+export async function swapLessonPositions(a, b) {
+  await updateLesson(a.id, { position: b.position })
+  await updateLesson(b.id, { position: a.position })
+}
+
 export async function deleteLesson(id, thumbnailPath) {
   const { error } = await supabase.from('course_lessons').delete().eq('id', id)
   if (error) throw error

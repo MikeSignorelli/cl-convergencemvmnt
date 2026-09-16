@@ -3,12 +3,20 @@ import { Link, useParams } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
 import { fetchCourse, uploadCourseThumbnail } from '../../lib/courses'
-import { adminListLessons, createLesson, deleteLesson } from '../../lib/courseLessons'
+import { adminListLessons, createLesson, updateLesson, deleteLesson, swapLessonPositions } from '../../lib/courseLessons'
 
 function fmtDate(iso) {
   if (!iso) return null
   const d = new Date(iso)
   return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+}
+
+// ISO (UTC) -> value for a <input type="datetime-local"> (local wall-clock).
+function toLocalInput(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 export default function ManageEpisodes() {
@@ -26,6 +34,7 @@ export default function ManageEpisodes() {
   const [durationLabel, setDurationLabel] = useState('')
   const [releaseAt, setReleaseAt] = useState('')
   const [thumbnail, setThumbnail] = useState(null)
+  const [editingId, setEditingId] = useState(null)
 
   async function refresh() {
     try {
@@ -51,30 +60,24 @@ export default function ManageEpisodes() {
 
     setSubmitting(true)
     try {
-      let thumbnailPath = null
-      if (thumbnail) {
-        const uploaded = await uploadCourseThumbnail(thumbnail)
-        thumbnailPath = uploaded.path
-      }
-      await createLesson({
-        courseId,
+      const fields = {
         title: title.trim(),
         description: description.trim(),
         extraInfo: extraInfo.trim(),
         videoUrl: videoUrl.trim(),
-        thumbnailPath,
         durationLabel: durationLabel.trim(),
         // datetime-local is local wall-clock; store as absolute UTC. Empty = available now.
         releaseAt: releaseAt ? new Date(releaseAt).toISOString() : null,
-        position: episodes.length,
-      })
-      setTitle('')
-      setVideoUrl('')
-      setDescription('')
-      setExtraInfo('')
-      setDurationLabel('')
-      setReleaseAt('')
-      setThumbnail(null)
+      }
+      // Only touch the thumbnail when a new file is chosen (keeps the current one on edit).
+      if (thumbnail) {
+        const uploaded = await uploadCourseThumbnail(thumbnail)
+        fields.thumbnailPath = uploaded.path
+      }
+      if (editingId) await updateLesson(editingId, fields)
+      else await createLesson({ courseId, ...fields, position: episodes.length })
+
+      resetForm()
       await refresh()
     } catch (err) {
       setError(err.message || 'Could not add this episode.')
@@ -85,6 +88,42 @@ export default function ManageEpisodes() {
   async function handleDelete(ep) {
     try {
       await deleteLesson(ep.id, ep.thumbnail_path)
+      await refresh()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  function resetForm() {
+    setEditingId(null)
+    setTitle('')
+    setVideoUrl('')
+    setDescription('')
+    setExtraInfo('')
+    setDurationLabel('')
+    setReleaseAt('')
+    setThumbnail(null)
+    setError('')
+  }
+
+  function startEdit(ep) {
+    setEditingId(ep.id)
+    setTitle(ep.title || '')
+    setVideoUrl(ep.video_url || '')
+    setDescription(ep.description || '')
+    setExtraInfo(ep.extra_info || '')
+    setDurationLabel(ep.duration_label || '')
+    setReleaseAt(toLocalInput(ep.release_at))
+    setThumbnail(null)
+    setError('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function move(index, dir) {
+    const other = index + dir
+    if (other < 0 || other >= episodes.length) return
+    try {
+      await swapLessonPositions(episodes[index], episodes[other])
       await refresh()
     } catch (err) {
       setError(err.message)
@@ -158,13 +197,24 @@ export default function ManageEpisodes() {
 
             {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-fit cursor-pointer rounded-full border-none bg-gold px-8 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {submitting ? 'Adding…' : 'Add episode'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-fit cursor-pointer rounded-full border-none bg-gold px-8 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting ? 'Saving…' : editingId ? 'Save changes' : 'Add episode'}
+              </button>
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="cursor-pointer rounded-full border border-cream/20 bg-transparent px-6 py-3 font-sans text-[12px] font-semibold uppercase tracking-[0.12em] text-cream/70"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
           </form>
 
           <div className="overflow-hidden rounded-cv-lg border border-cream/[0.09]">
@@ -200,7 +250,12 @@ export default function ManageEpisodes() {
                       <td className="px-5 py-3.5 font-serif text-sm text-cream/60 max-w-[240px] truncate">
                         <a href={ep.video_url} target="_blank" rel="noreferrer" className="text-gold no-underline">{ep.video_url}</a>
                       </td>
-                      <td className="px-5 py-3.5 text-right">
+                      <td className="whitespace-nowrap px-5 py-3.5 text-right">
+                        <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="mr-2 cursor-pointer border-none bg-transparent font-sans text-[15px] text-cream/50 disabled:cursor-not-allowed disabled:opacity-25" aria-label="Move up">↑</button>
+                        <button type="button" onClick={() => move(i, 1)} disabled={i === episodes.length - 1} className="mr-4 cursor-pointer border-none bg-transparent font-sans text-[15px] text-cream/50 disabled:cursor-not-allowed disabled:opacity-25" aria-label="Move down">↓</button>
+                        <button type="button" onClick={() => startEdit(ep)} className="mr-4 cursor-pointer border-none bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-gold">
+                          Edit
+                        </button>
                         <button type="button" onClick={() => handleDelete(ep)} className="cursor-pointer border-none bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-[#D8888A]">
                           Delete
                         </button>
