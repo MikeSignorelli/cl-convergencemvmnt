@@ -36,7 +36,7 @@ export async function createCourse({
   videoUrl,
 }) {
   const { data: userData } = await supabase.auth.getUser()
-  const { error } = await supabase.from('courses').insert({
+  const { data, error } = await supabase.from('courses').insert({
     title,
     description: description || null,
     category: category || null,
@@ -48,8 +48,9 @@ export async function createCourse({
     thumbnail_path: thumbnailPath || null,
     video_url: videoUrl || null,
     created_by: userData.user?.id ?? null,
-  })
+  }).select('id').single()
   if (error) throw error
+  return data // { id } — lets the caller seed a first episode right away
 }
 
 // Edit an existing course. Only the fields passed are changed — omit

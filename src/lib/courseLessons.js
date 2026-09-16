@@ -16,7 +16,7 @@ function decorate(rows) {
 export async function listCourseLessons(courseId) {
   const { data, error } = await supabase
     .from('course_lessons')
-    .select('id, course_id, title, description, extra_info, thumbnail_path, duration_label, release_at, position, created_at')
+    .select('id, course_id, title, description, extra_info, thumbnail_path, duration_label, release_at, week_number, position, created_at')
     .eq('course_id', courseId)
     .order('position', { ascending: true })
   if (error) throw error
@@ -47,6 +47,7 @@ export async function createLesson({
   thumbnailPath,
   durationLabel,
   releaseAt,
+  weekNumber,
   position,
 }) {
   const { data: userData } = await supabase.auth.getUser()
@@ -59,6 +60,7 @@ export async function createLesson({
     thumbnail_path: thumbnailPath || null,
     duration_label: durationLabel || null,
     release_at: releaseAt || null,
+    week_number: weekNumber || null,
     position: position ?? 0,
     created_by: userData.user?.id ?? null,
   })
@@ -76,6 +78,7 @@ export async function updateLesson(id, fields) {
   if ('thumbnailPath' in fields) patch.thumbnail_path = fields.thumbnailPath || null
   if ('durationLabel' in fields) patch.duration_label = fields.durationLabel || null
   if ('releaseAt' in fields) patch.release_at = fields.releaseAt || null
+  if ('weekNumber' in fields) patch.week_number = fields.weekNumber || null
   if ('position' in fields) patch.position = fields.position
   const { error } = await supabase.from('course_lessons').update(patch).eq('id', id)
   if (error) throw error

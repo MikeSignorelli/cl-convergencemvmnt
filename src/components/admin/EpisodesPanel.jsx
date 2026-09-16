@@ -24,6 +24,7 @@ export default function EpisodesPanel({ courseId }) {
   const [editingId, setEditingId] = useState(null)
 
   const [title, setTitle] = useState('')
+  const [weekNumber, setWeekNumber] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
   const [description, setDescription] = useState('')
   const [extraInfo, setExtraInfo] = useState('')
@@ -47,6 +48,7 @@ export default function EpisodesPanel({ courseId }) {
   function resetForm() {
     setEditingId(null)
     setTitle('')
+    setWeekNumber('')
     setVideoUrl('')
     setDescription('')
     setExtraInfo('')
@@ -58,6 +60,7 @@ export default function EpisodesPanel({ courseId }) {
   function startEdit(ep) {
     setEditingId(ep.id)
     setTitle(ep.title || '')
+    setWeekNumber(ep.week_number ? String(ep.week_number) : '')
     setVideoUrl(ep.video_url || '')
     setDescription(ep.description || '')
     setExtraInfo(ep.extra_info || '')
@@ -76,6 +79,7 @@ export default function EpisodesPanel({ courseId }) {
     try {
       const fields = {
         title: title.trim(),
+        weekNumber: weekNumber ? parseInt(weekNumber, 10) : null,
         description: description.trim(),
         extraInfo: extraInfo.trim(),
         videoUrl: videoUrl.trim(),
@@ -119,10 +123,14 @@ export default function EpisodesPanel({ courseId }) {
   return (
     <>
       <form onSubmit={handleAdd} className="mb-8 flex flex-col gap-4 rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-6">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-[90px_1fr_1fr] gap-4">
           <div>
-            <label className={labelCls}>Episode title</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Week 1 · Identifying Root Beliefs" className={inputCls} />
+            <label className={labelCls}>Week</label>
+            <input type="number" min="1" value={weekNumber} onChange={(e) => setWeekNumber(e.target.value)} placeholder="1" className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Episode name</label>
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Identifying Root Beliefs" className={inputCls} />
           </div>
           <div>
             <label className={labelCls}>Video link (Vimeo)</label>
@@ -169,17 +177,19 @@ export default function EpisodesPanel({ courseId }) {
           <thead>
             <tr className="border-b border-cream/[0.09] bg-cream/[0.03]">
               <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">#</th>
+              <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Week</th>
               <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Episode</th>
               <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Release</th>
               <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50" />
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={4} className="px-5 py-6 text-center font-serif text-cream/50">Loading…</td></tr>}
-            {!loading && episodes.length === 0 && <tr><td colSpan={4} className="px-5 py-6 text-center font-serif text-cream/50">No episodes yet — add the first above.</td></tr>}
+            {loading && <tr><td colSpan={5} className="px-5 py-6 text-center font-serif text-cream/50">Loading…</td></tr>}
+            {!loading && episodes.length === 0 && <tr><td colSpan={5} className="px-5 py-6 text-center font-serif text-cream/50">No episodes yet — add the first above.</td></tr>}
             {!loading && episodes.map((ep, i) => (
               <tr key={ep.id} className="border-b border-cream/[0.06] last:border-b-0 align-middle">
                 <td className="px-5 py-3.5 font-serif text-sm text-cream/50">{i + 1}</td>
+                <td className="px-5 py-3.5 font-sans text-sm font-semibold text-[#E9CF9C]">{ep.week_number ? `Week ${ep.week_number}` : '—'}</td>
                 <td className="px-5 py-3.5 font-sans text-sm font-medium">{ep.title}</td>
                 <td className="px-5 py-3.5 font-serif text-sm">
                   {ep.released ? (

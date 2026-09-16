@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
 import { adminListCourses, createCourse, deleteCourse, uploadCourseThumbnail } from '../../lib/courses'
+import { createLesson } from '../../lib/courseLessons'
 import { formatPrice } from '../../lib/billing'
 
 const TIERS = ['disciple', 'leader', 'pastor']
@@ -24,6 +25,8 @@ export default function UploadCourses() {
   const [stripePriceId, setStripePriceId] = useState('')
   const [visibleTiers, setVisibleTiers] = useState(TIERS)
   const [thumbnail, setThumbnail] = useState(null)
+  const [firstTitle, setFirstTitle] = useState('')
+  const [firstVideoUrl, setFirstVideoUrl] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -50,6 +53,8 @@ export default function UploadCourses() {
     setStripePriceId('')
     setVisibleTiers(TIERS)
     setThumbnail(null)
+    setFirstTitle('')
+    setFirstVideoUrl('')
     setError('')
   }
 
@@ -78,7 +83,18 @@ export default function UploadCourses() {
         const uploaded = await uploadCourseThumbnail(thumbnail)
         fields.thumbnailPath = uploaded.path
       }
-      await createCourse(fields)
+      const created = await createCourse(fields)
+      // If a first video link was given, seed it as Week 1 so the course isn't
+      // empty — the rest of the episodes get added from the course's Episodes tab.
+      if (firstVideoUrl.trim() && created?.id) {
+        await createLesson({
+          courseId: created.id,
+          title: firstTitle.trim() || 'Week 1',
+          videoUrl: firstVideoUrl.trim(),
+          weekNumber: 1,
+          position: 0,
+        })
+      }
       resetForm()
       setShowForm(false)
       await refresh()
@@ -177,10 +193,25 @@ export default function UploadCourses() {
               <div>
                 <label className={labelCls}>Course thumbnail (optional)</label>
                 <input type="file" accept="image/*" onChange={(e) => setThumbnail(e.target.files?.[0] || null)} className="w-full font-serif text-[13.5px] text-cream/70" />
-                <p className="mt-1.5 font-serif text-[12px] text-cream/40">
-                  Add videos after — create the course, open it, and add episodes under the Episodes tab.
+              </div>
+
+              <div className="rounded-[10px] border border-dashed border-cream/[0.14] px-5 py-5">
+                <p className="mb-3 font-sans text-[11px] font-semibold uppercase tracking-[0.14em] text-cream/50">First episode (optional)</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Episode name</label>
+                    <input type="text" value={firstTitle} onChange={(e) => setFirstTitle(e.target.value)} placeholder="Introduction" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Video link (Vimeo)</label>
+                    <input type="url" value={firstVideoUrl} onChange={(e) => setFirstVideoUrl(e.target.value)} placeholder="https://vimeo.com/…" className={inputCls} />
+                  </div>
+                </div>
+                <p className="mt-2.5 font-serif text-[12px] text-cream/40">
+                  Paste a Vimeo link to publish it as Week 1 right away. Add the remaining weeks — each with its own release date — from the course's Episodes tab.
                 </p>
               </div>
+
               {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
               <button type="submit" disabled={submitting} className="w-fit cursor-pointer rounded-full border-none bg-gold px-8 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60">
                 {submitting ? 'Creating…' : 'Create course'}

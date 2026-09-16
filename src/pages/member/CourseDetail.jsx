@@ -229,6 +229,9 @@ export default function CourseDetail() {
                             {!playable && <div className="absolute inset-0 flex items-center justify-center"><LockIcon /></div>}
                           </div>
                           <div className="min-w-0 flex-1">
+                            {ep.week_number && (
+                              <div className="font-sans text-[10px] font-semibold uppercase tracking-[0.14em] text-gold/80">Week {ep.week_number}</div>
+                            )}
                             <div className="truncate font-sans text-[14px] font-semibold text-white">{ep.title}</div>
                             <div className="font-serif text-[12.5px] text-cream/50">
                               {ep.released ? ep.duration_label || 'Available now' : `Unlocks ${fmtDate(ep.release_at)}`}
