@@ -26,7 +26,7 @@ import FinishSetup    from './pages/member/FinishSetup'
 import Members            from './pages/admin/Members'
 import UploadResources    from './pages/admin/UploadResources'
 import UploadCourses      from './pages/admin/UploadCourses'
-import ManageEpisodes     from './pages/admin/ManageEpisodes'
+import ManageCourse       from './pages/admin/ManageCourse'
 import UploadLiveSessions from './pages/admin/UploadLiveSessions'
 import Analytics          from './pages/admin/Analytics'
 import AdminSettings      from './pages/admin/AdminSettings'
@@ -53,7 +53,8 @@ export default function App() {
         <Route path="/dashboard"      element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/admin/members"  element={<RequireAuth adminOnly><Members /></RequireAuth>} />
         <Route path="/admin/courses" element={<RequireAuth adminOnly><UploadCourses /></RequireAuth>} />
-        <Route path="/admin/courses/:courseId/episodes" element={<RequireAuth adminOnly><ManageEpisodes /></RequireAuth>} />
+        <Route path="/admin/courses/:courseId" element={<RequireAuth adminOnly><ManageCourse /></RequireAuth>} />
+        <Route path="/admin/courses/:courseId/episodes" element={<RequireAuth adminOnly><ManageCourse /></RequireAuth>} />
         <Route path="/admin/analytics" element={<RequireAuth adminOnly><Analytics /></RequireAuth>} />
         <Route path="/admin/settings" element={<RequireAuth adminOnly><AdminSettings /></RequireAuth>} />
         <Route path="/courses"        element={<CourseLibrary />} />
