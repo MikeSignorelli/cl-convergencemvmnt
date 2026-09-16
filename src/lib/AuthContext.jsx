@@ -40,6 +40,10 @@ export function AuthProvider({ children }) {
   // in-memory only (not sessionStorage) so it never persists across a
   // refresh and can't be mistaken for the admin's real identity.
   const [previewTier, setPreviewTier] = useState(null)
+  // Completed à-la-carte ("mentorship") course purchases. Lets a non-subscriber
+  // who bought individual courses into the member area — they see what they
+  // bought, with everything else locked/blurred behind the upgrade prompt.
+  const [purchasedCourseIds, setPurchasedCourseIds] = useState([])
 
   useEffect(() => {
     let cancelled = false
@@ -125,6 +129,29 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  // Load the member's completed purchases (own-rows RLS). Deliberately separate
+  // from the session/profile effect above so it never touches `loading` or the
+  // signup race handling — it's purely additive access info.
+  useEffect(() => {
+    const uid = profile?.id
+    if (!uid) {
+      setPurchasedCourseIds([])
+      return
+    }
+    let cancelled = false
+    supabase
+      .from('course_purchases')
+      .select('course_id')
+      .eq('user_id', uid)
+      .eq('status', 'completed')
+      .then(({ data }) => {
+        if (!cancelled) setPurchasedCourseIds([...new Set((data || []).map((r) => r.course_id))])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [profile?.id])
+
   const isAdmin = profile?.tier === 'admin'
 
   // Stable references (useCallback with no deps): both are read via a
@@ -151,6 +178,8 @@ export function AuthProvider({ children }) {
     session,
     profile,
     isAdmin,
+    purchasedCourseIds,
+    hasAnyPurchase: purchasedCourseIds.length > 0,
     previewTier,
     setPreviewTier,
     authError,

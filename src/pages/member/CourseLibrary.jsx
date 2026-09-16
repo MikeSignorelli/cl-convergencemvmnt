@@ -53,7 +53,7 @@ function CourseCard({ course, unlocked }) {
 }
 
 export default function CourseLibrary() {
-  const { profile, isAdmin } = useAuth()
+  const { profile, isAdmin, purchasedCourseIds, hasAnyPurchase } = useAuth()
   const navigate = useNavigate()
   const [courses, setCourses] = useState([])
   const [loading, setLoading] = useState(true)
@@ -83,9 +83,13 @@ export default function CourseLibrary() {
   // on an active subscription (see PaymentWall) plus the member's own tier
   // matching a course's visible_tiers (see get_course_video_url in
   // migration 0013), not on purchasing anything individually.
-  const hasPaidAccess = isAdmin || profile?.subscription_status === 'active'
+  // À-la-carte buyers get in too (they see their course; the rest are locked).
+  const hasPaidAccess = isAdmin || profile?.subscription_status === 'active' || hasAnyPurchase
 
-  const isUnlocked = (course) => isAdmin || course.visible_tiers?.includes(profile?.tier)
+  const isUnlocked = (course) =>
+    isAdmin ||
+    (profile?.subscription_status === 'active' && course.visible_tiers?.includes(profile?.tier)) ||
+    purchasedCourseIds.includes(course.id)
 
   const categories = useMemo(() => {
     const seen = []

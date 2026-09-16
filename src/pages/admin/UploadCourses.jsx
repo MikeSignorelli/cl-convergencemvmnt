@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
 import { adminListCourses, createCourse, deleteCourse, uploadCourseThumbnail } from '../../lib/courses'
@@ -17,7 +18,6 @@ export default function UploadCourses() {
   const [price, setPrice] = useState('')
   const [stripePriceId, setStripePriceId] = useState('')
   const [visibleTiers, setVisibleTiers] = useState(TIERS)
-  const [videoUrl, setVideoUrl] = useState('')
   const [thumbnail, setThumbnail] = useState(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -50,10 +50,6 @@ export default function UploadCourses() {
       setError('Enter a title.')
       return
     }
-    if (!videoUrl.trim()) {
-      setError('Add a video link.')
-      return
-    }
     if (visibleTiers.length === 0) {
       setError('Select at least one tier.')
       return
@@ -77,7 +73,6 @@ export default function UploadCourses() {
         stripePriceId: stripePriceId.trim(),
         visibleTiers,
         thumbnailPath,
-        videoUrl: videoUrl.trim(),
       })
 
       setTitle('')
@@ -88,7 +83,6 @@ export default function UploadCourses() {
       setPrice('')
       setStripePriceId('')
       setVisibleTiers(TIERS)
-      setVideoUrl('')
       setThumbnail(null)
       await refresh()
     } catch (err) {
@@ -116,7 +110,7 @@ export default function UploadCourses() {
             Upload courses
           </h1>
           <p className="mb-6 font-serif text-[15px] text-cream/60">
-            Link an existing video and choose which tiers can see it.
+            Create a course, then add its videos as episodes (each with its own release date) from “Manage episodes.”
           </p>
 
           <form
@@ -236,30 +230,19 @@ export default function UploadCourses() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
-                  Video link
-                </label>
-                <input
-                  type="url"
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  placeholder="https://vimeo.com/…"
-                  className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
-                  Thumbnail (optional)
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setThumbnail(e.target.files?.[0] || null)}
-                  className="w-full font-serif text-[13.5px] text-cream/70"
-                />
-              </div>
+            <div>
+              <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
+                Course thumbnail (optional)
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setThumbnail(e.target.files?.[0] || null)}
+                className="w-full font-serif text-[13.5px] text-cream/70"
+              />
+              <p className="mt-1.5 font-serif text-[12px] text-cream/40">
+                Videos aren’t added here anymore — create the course, then add its episodes (each with its own video, thumbnail, and release date) from “Manage episodes.”
+              </p>
             </div>
 
             {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
@@ -281,7 +264,7 @@ export default function UploadCourses() {
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Category</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Price</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Visible to</th>
-                  <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Video</th>
+                  <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Episodes</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50" />
                 </tr>
               </thead>
@@ -312,10 +295,10 @@ export default function UploadCourses() {
                         {c.price_cents > 0 ? formatPrice(c.price_cents) : 'Membership only'}
                       </td>
                       <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{c.visible_tiers.join(', ')}</td>
-                      <td className="px-5 py-3.5 font-serif text-sm text-cream/60 max-w-[260px] truncate">
-                        <a href={c.video_url} target="_blank" rel="noreferrer" className="text-gold no-underline">
-                          {c.video_url}
-                        </a>
+                      <td className="px-5 py-3.5 font-serif text-sm">
+                        <Link to={`/admin/courses/${c.id}/episodes`} className="text-gold no-underline">
+                          Manage episodes →
+                        </Link>
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <button

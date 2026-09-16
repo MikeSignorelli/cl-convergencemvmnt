@@ -127,7 +127,7 @@ function googleCalendarUrl(session) {
 }
 
 export default function Dashboard() {
-  const { profile, isAdmin, previewTier, setPreviewTier } = useAuth()
+  const { profile, isAdmin, previewTier, setPreviewTier, hasAnyPurchase } = useAuth()
   const tier = isAdmin ? previewTier || 'disciple' : profile?.tier || 'disciple'
   const readOnly = isAdmin
   const [dailyDone, setDailyDone] = useState(false)
@@ -139,7 +139,7 @@ export default function Dashboard() {
   // Dashboard content is the membership paywall — admins always pass
   // through (they don't hold a subscription), everyone else needs
   // subscription_status === 'active' (see migration 0011 / Stripe webhook).
-  const hasPaidAccess = isAdmin || profile?.subscription_status === 'active'
+  const hasPaidAccess = isAdmin || profile?.subscription_status === 'active' || hasAnyPurchase
 
   // Next upcoming live session, read from real data (RLS already scopes
   // live_sessions to the member's tier). listLiveSessions is sorted ascending

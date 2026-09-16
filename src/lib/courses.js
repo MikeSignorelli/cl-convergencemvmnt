@@ -46,7 +46,7 @@ export async function createCourse({
     stripe_price_id: stripePriceId || null,
     visible_tiers: visibleTiers,
     thumbnail_path: thumbnailPath || null,
-    video_url: videoUrl,
+    video_url: videoUrl || null,
     created_by: userData.user?.id ?? null,
   })
   if (error) throw error

@@ -21,7 +21,7 @@ export async function uploadResourceFile(file) {
   return path
 }
 
-export async function createResource({ title, description, visibleTiers, filePath, externalUrl }) {
+export async function createResource({ title, description, visibleTiers, filePath, externalUrl, courseId }) {
   const { data: userData } = await supabase.auth.getUser()
   const { error } = await supabase.from('resources').insert({
     title,
@@ -29,15 +29,28 @@ export async function createResource({ title, description, visibleTiers, filePat
     visible_tiers: visibleTiers,
     file_path: filePath || null,
     external_url: externalUrl || null,
+    course_id: courseId || null,
     created_by: userData.user?.id ?? null,
   })
   if (error) throw error
 }
 
+// Resources attached to one course. RLS returns only the ones the caller can
+// access (course access rule). Shown at the end of the course page + in Resources.
+export async function listCourseResources(courseId) {
+  const { data, error } = await supabase
+    .from('resources')
+    .select('id, title, description, file_path, external_url, course_id, created_at')
+    .eq('course_id', courseId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
 export async function listResources() {
   const { data, error } = await supabase
     .from('resources')
-    .select('id, title, description, visible_tiers, file_path, external_url, created_at')
+    .select('id, title, description, visible_tiers, file_path, external_url, course_id, created_at')
     .order('created_at', { ascending: false })
   if (error) throw error
   return data || []

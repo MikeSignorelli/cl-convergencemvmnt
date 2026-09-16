@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
 import { useAuth } from '../../lib/AuthContext'
+import { listCourses } from '../../lib/courses'
 import {
   createResource,
   deleteResource,
@@ -24,8 +25,16 @@ export default function UploadResources() {
   const [visibleTiers, setVisibleTiers] = useState(TIERS)
   const [file, setFile] = useState(null)
   const [externalUrl, setExternalUrl] = useState('')
+  const [courseId, setCourseId] = useState('')
+  const [courses, setCourses] = useState([])
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    listCourses().then(setCourses).catch(() => {})
+  }, [])
+
+  const courseTitle = (id) => courses.find((c) => c.id === id)?.title
 
   async function refresh() {
     setLoading(true)
@@ -87,6 +96,7 @@ export default function UploadResources() {
         visibleTiers,
         filePath,
         externalUrl: externalUrl.trim() || null,
+        courseId: courseId || null,
       })
 
       setTitle('')
@@ -94,6 +104,7 @@ export default function UploadResources() {
       setVisibleTiers(TIERS)
       setFile(null)
       setExternalUrl('')
+      setCourseId('')
       if (fileInputRef.current) fileInputRef.current.value = ''
       setShowForm(false)
       await refresh()
@@ -193,6 +204,26 @@ export default function UploadResources() {
               </div>
             </div>
 
+            <div>
+              <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
+                Attach to a course (optional)
+              </label>
+              <select
+                value={courseId}
+                onChange={(e) => setCourseId(e.target.value)}
+                style={{ colorScheme: 'dark' }}
+                className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none"
+              >
+                <option value="">General resource (tier-gated)</option>
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>{c.title}</option>
+                ))}
+              </select>
+              <p className="mt-1.5 font-serif text-[12px] text-cream/40">
+                Course-attached files (content PDFs, the summary doc) show inside that course and only to people who can access it.
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
@@ -257,7 +288,9 @@ export default function UploadResources() {
                   resources.map((r) => (
                     <tr key={r.id} className="border-b border-cream/[0.06] last:border-b-0">
                       <td className="px-5 py-3.5 font-sans text-sm font-medium">{r.title}</td>
-                      <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{r.visible_tiers.join(', ')}</td>
+                      <td className="px-5 py-3.5 font-serif text-sm text-cream/60">
+                        {r.course_id ? (courseTitle(r.course_id) || 'Course') : r.visible_tiers.join(', ')}
+                      </td>
                       <td className="px-5 py-3.5 font-serif text-sm text-cream/60">
                         {r.file_path ? 'File' : 'Link'}
                       </td>
