@@ -5,6 +5,7 @@ import MemberTopbar from '../../components/MemberTopbar'
 import PaymentWall, { PaymentStatusBadge } from '../../components/PaymentWall'
 import { useAuth } from '../../lib/AuthContext'
 import { listLiveSessions } from '../../lib/liveSessions'
+import { fetchContinueWatching } from '../../lib/courseLessons'
 import continueWatchingImg from '../../assets/app-images/dashboard-continue-watching.jpg'
 import dailyResetImg from '../../assets/app-images/dashboard-daily-reset.jpg'
 
@@ -160,6 +161,18 @@ export default function Dashboard() {
     }
   }, [])
 
+  // Real "continue watching" — most recently watched, unfinished episode.
+  const [continueWatching, setContinueWatching] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    fetchContinueWatching()
+      .then((cw) => !cancelled && setContinueWatching(cw))
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   // Real session when one exists; otherwise the demo teaser stays, but the
   // button is disabled — it only ever adds a real, scheduled event.
   const liveTitle = nextSession ? nextSession.title : t.liveTitle
@@ -269,12 +282,12 @@ export default function Dashboard() {
             {/* Left column */}
             <div className="flex min-w-0 flex-col gap-[22px]">
               <Link
-                to="/player"
+                to={continueWatching ? `/courses/${continueWatching.courseId}` : '/courses'}
                 className="relative block overflow-hidden rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] text-inherit no-underline"
               >
                 <div className="relative aspect-[16/7] overflow-hidden">
                   <img
-                    src={continueWatchingImg}
+                    src={continueWatching?.thumbnailUrl || continueWatchingImg}
                     alt=""
                     className="block h-full w-full object-cover"
                     style={{ filter: 'brightness(0.72)' }}
@@ -291,9 +304,11 @@ export default function Dashboard() {
                       Continue watching
                     </div>
                     <div className="mb-1 font-sans text-2xl font-bold uppercase leading-[1.05] text-white">
-                      {t.course}
+                      {continueWatching ? continueWatching.courseTitle : t.course}
                     </div>
-                    <div className="font-serif text-[15.5px] text-cream/[78%]">{t.episode}</div>
+                    <div className="font-serif text-[15.5px] text-cream/[78%]">
+                      {continueWatching ? continueWatching.episodeTitle : t.episode}
+                    </div>
                   </div>
                   <div
                     className="absolute bottom-[22px] right-6 flex h-[52px] w-[52px] items-center justify-center rounded-full shadow-[0_12px_28px_-8px_rgba(0,0,0,0.6)]"
@@ -308,11 +323,11 @@ export default function Dashboard() {
                   <div className="h-[5px] flex-1 overflow-hidden rounded-full bg-cream/10">
                     <div
                       className="h-full rounded-full"
-                      style={{ background: t.accent, width: t.pctW }}
+                      style={{ background: t.accent, width: continueWatching ? `${continueWatching.percent}%` : t.pctW }}
                     />
                   </div>
                   <span className="font-sans text-xs font-semibold tracking-[0.08em] text-cream/60">
-                    {t.pct}% complete
+                    {continueWatching ? continueWatching.percent : t.pct}% complete
                   </span>
                 </div>
               </Link>

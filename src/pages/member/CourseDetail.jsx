@@ -5,7 +5,7 @@ import PaymentWall from '../../components/PaymentWall'
 import UpgradeLock from '../../components/UpgradeLock'
 import VimeoPlayer from '../../components/VimeoPlayer'
 import { fetchCourse } from '../../lib/courses'
-import { listCourseLessons, fetchLessonVideoUrl } from '../../lib/courseLessons'
+import { listCourseLessons, fetchLessonVideoUrl, fetchLessonProgress, saveLessonProgress } from '../../lib/courseLessons'
 import { listCourseResources, getResourceDownloadUrl } from '../../lib/resources'
 import { useAuth } from '../../lib/AuthContext'
 
@@ -34,6 +34,7 @@ export default function CourseDetail() {
   const [selectedId, setSelectedId] = useState(null)
   const [lessonUrl, setLessonUrl] = useState(null)
   const [lessonLoading, setLessonLoading] = useState(false)
+  const [resumeSeconds, setResumeSeconds] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -86,8 +87,13 @@ export default function CourseDetail() {
     }
     let cancelled = false
     setLessonLoading(true)
-    fetchLessonVideoUrl(selectedId)
-      .then((url) => !cancelled && setLessonUrl(url))
+    setResumeSeconds(0)
+    Promise.all([fetchLessonVideoUrl(selectedId), fetchLessonProgress(selectedId).catch(() => null)])
+      .then(([url, prog]) => {
+        if (cancelled) return
+        setLessonUrl(url)
+        setResumeSeconds(prog && !prog.completed ? prog.seconds || 0 : 0)
+      })
       .catch(() => !cancelled && setLessonUrl(null))
       .finally(() => !cancelled && setLessonLoading(false))
     return () => {
@@ -165,7 +171,30 @@ export default function CourseDetail() {
                   lessonLoading ? (
                     <div className={boxCls}><span className="font-serif text-cream/50">Loading video…</span></div>
                   ) : lessonUrl ? (
-                    <VimeoPlayer key={selected.id} video={lessonUrl} />
+                    <VimeoPlayer
+                      key={selected.id}
+                      video={lessonUrl}
+                      startAt={resumeSeconds}
+                      onProgress={(d) =>
+                        saveLessonProgress({
+                          lessonId: selected.id,
+                          courseId: course.id,
+                          seconds: d.seconds,
+                          duration: d.duration,
+                          percent: d.percent,
+                        })
+                      }
+                      onComplete={(d) =>
+                        saveLessonProgress({
+                          lessonId: selected.id,
+                          courseId: course.id,
+                          seconds: d?.duration ?? d?.seconds,
+                          duration: d?.duration,
+                          percent: 1,
+                          completed: true,
+                        })
+                      }
+                    />
                   ) : (
                     <div className={boxCls}><span className="font-serif text-cream/50">This episode doesn&rsquo;t have a video yet.</span></div>
                   )

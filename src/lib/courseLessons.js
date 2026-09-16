@@ -72,3 +72,55 @@ export async function deleteLesson(id, thumbnailPath) {
     await supabase.storage.from('course-thumbnails').remove([thumbnailPath])
   }
 }
+
+// ---- Watch progress (lesson_progress) --------------------------------------
+
+export async function saveLessonProgress({ lessonId, courseId, seconds, duration, percent, completed }) {
+  const { data: userData } = await supabase.auth.getUser()
+  const uid = userData.user?.id
+  if (!uid) return
+  await supabase.from('lesson_progress').upsert(
+    {
+      user_id: uid,
+      lesson_id: lessonId,
+      course_id: courseId,
+      seconds: Math.round(seconds || 0),
+      duration: duration ? Math.round(duration) : null,
+      percent: percent || 0,
+      completed: completed || false,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,lesson_id' }
+  )
+}
+
+export async function fetchLessonProgress(lessonId) {
+  const { data } = await supabase
+    .from('lesson_progress')
+    .select('seconds, percent, completed')
+    .eq('lesson_id', lessonId)
+    .maybeSingle()
+  return data
+}
+
+// Most-recently-watched, not-yet-finished episode — powers the dashboard card.
+export async function fetchContinueWatching() {
+  const { data } = await supabase
+    .from('lesson_progress')
+    .select('lesson_id, course_id, seconds, duration, percent, updated_at, course_lessons(title), courses(title, thumbnail_path)')
+    .eq('completed', false)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!data) return null
+  return {
+    courseId: data.course_id,
+    lessonId: data.lesson_id,
+    percent: Math.round(data.percent || 0),
+    seconds: data.seconds,
+    duration: data.duration,
+    courseTitle: data.courses?.title,
+    episodeTitle: data.course_lessons?.title,
+    thumbnailUrl: courseThumbnailUrl(data.courses?.thumbnail_path),
+  }
+}
