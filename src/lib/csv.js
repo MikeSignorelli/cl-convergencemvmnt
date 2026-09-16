@@ -90,3 +90,21 @@ export function validateEpisodeCsvRow(row, rowIndex) {
 
   return { valid: errors.length === 0, errors }
 }
+
+// Splits already-parsed CSV rows (parseCsv) into valid/invalid buckets using
+// validateEpisodeCsvRow, pairing each row with its 1-based rowIndex
+// (matching a spreadsheet's data-row numbering) and — for invalid rows —
+// the specific validation error messages. Powers the CSV-import preview
+// table and the "Import N valid rows" step (EpisodesPanel): only `valid`
+// rows get imported, `invalid` ones are shown but skipped.
+export function partitionCsvRows(rows) {
+  const valid = []
+  const invalid = []
+  ;(rows || []).forEach((row, i) => {
+    const rowIndex = i + 1
+    const result = validateEpisodeCsvRow(row, rowIndex)
+    if (result.valid) valid.push({ row, rowIndex })
+    else invalid.push({ row, rowIndex, errors: result.errors })
+  })
+  return { valid, invalid }
+}

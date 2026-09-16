@@ -76,7 +76,7 @@ export default function ManageCourse() {
               </div>
 
               {tab === 'details' && <CourseDetailsPanel course={course} onSaved={loadCourse} />}
-              {tab === 'episodes' && <EpisodesPanel courseId={course.id} />}
+              {tab === 'episodes' && <EpisodesPanel courseId={course.id} weeks={course.weeks} />}
               {tab === 'resources' && <CourseResourcesPanel courseId={course.id} />}
             </>
           )}

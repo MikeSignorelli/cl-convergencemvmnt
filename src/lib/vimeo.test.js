@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { extractVimeoId, fetchVimeoOEmbed } from './vimeo'
+import { extractVimeoId, fetchVimeoOEmbed, formatDurationLabel } from './vimeo'
 
 describe('extractVimeoId', () => {
   it('parses a plain video URL', () => {
@@ -64,5 +64,25 @@ describe('fetchVimeoOEmbed', () => {
     vi.stubGlobal('fetch', mockFetch)
 
     await expect(fetchVimeoOEmbed('https://vimeo.com/000000000')).rejects.toThrow(/invalid or private video/i)
+  })
+})
+
+describe('formatDurationLabel', () => {
+  it('formats sub-hour durations as whole minutes', () => {
+    expect(formatDurationLabel(542)).toBe('9 min')
+  })
+
+  it('formats an exact hour with no leftover minutes', () => {
+    expect(formatDurationLabel(3600)).toBe('1h')
+  })
+
+  it('formats an hour-plus duration with leftover minutes', () => {
+    expect(formatDurationLabel(3661)).toBe('1h 1m')
+  })
+
+  it('returns an empty string for a missing/invalid value', () => {
+    expect(formatDurationLabel(null)).toBe('')
+    expect(formatDurationLabel(undefined)).toBe('')
+    expect(formatDurationLabel(NaN)).toBe('')
   })
 })

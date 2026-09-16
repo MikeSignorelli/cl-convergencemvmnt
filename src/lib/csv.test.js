@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseCsv, validateEpisodeCsvRow } from './csv'
+import { parseCsv, validateEpisodeCsvRow, partitionCsvRows } from './csv'
 
 describe('parseCsv', () => {
   it('parses a well-formed 2-row CSV', () => {
@@ -65,5 +65,38 @@ describe('validateEpisodeCsvRow', () => {
     const result = validateEpisodeCsvRow(row, 5)
     expect(result.valid).toBe(false)
     expect(result.errors).toEqual(expect.arrayContaining([expect.stringContaining('release_date')]))
+  })
+})
+
+describe('partitionCsvRows', () => {
+  it('puts every row in `valid` when all rows pass', () => {
+    const rows = [
+      { week: '1', title: 'Intro', video_link: 'https://vimeo.com/111' },
+      { week: '2', title: 'Deep Dive', video_link: 'https://vimeo.com/222' },
+    ]
+    const { valid, invalid } = partitionCsvRows(rows)
+    expect(invalid).toEqual([])
+    expect(valid).toEqual([
+      { row: rows[0], rowIndex: 1 },
+      { row: rows[1], rowIndex: 2 },
+    ])
+  })
+
+  it('separates invalid rows with their error messages, 1-based rowIndex', () => {
+    const rows = [
+      { week: '1', title: 'Intro', video_link: 'https://vimeo.com/111' },
+      { week: '0', title: '', video_link: 'not-a-link' },
+    ]
+    const { valid, invalid } = partitionCsvRows(rows)
+    expect(valid).toEqual([{ row: rows[0], rowIndex: 1 }])
+    expect(invalid).toHaveLength(1)
+    expect(invalid[0].rowIndex).toBe(2)
+    expect(invalid[0].row).toBe(rows[1])
+    expect(invalid[0].errors.length).toBeGreaterThan(0)
+  })
+
+  it('returns two empty arrays for no rows', () => {
+    expect(partitionCsvRows([])).toEqual({ valid: [], invalid: [] })
+    expect(partitionCsvRows(undefined)).toEqual({ valid: [], invalid: [] })
   })
 })

@@ -65,6 +65,7 @@ export default function CourseDetailsPanel({ course, onSaved }) {
   const [shortDescription, setShortDescription] = useState(course.short_description || '')
   const [status, setStatus] = useState(course.status || 'published')
   const [isSpecialProgram, setIsSpecialProgram] = useState(!!course.is_special_program)
+  const [accessMode, setAccessMode] = useState(course.access_mode || 'open')
   const [weeks, setWeeks] = useState(course.weeks != null ? String(course.weeks) : '')
   const [level, setLevel] = useState(course.level || '')
   const [language, setLanguage] = useState(course.language || '')
@@ -264,6 +265,7 @@ export default function CourseDetailsPanel({ course, onSaved }) {
           shortDescription: shortDescription.trim(),
           isSpecialProgram,
           status,
+          accessMode,
           weeks: weeksValue,
           level: level.trim(),
           language: language.trim(),
@@ -385,6 +387,31 @@ export default function CourseDetailsPanel({ course, onSaved }) {
             Special Program
           </button>
         </div>
+      </div>
+
+      <div>
+        <label className={labelCls}>Access mode</label>
+        <div className="flex flex-wrap gap-2.5">
+          <button
+            type="button"
+            onClick={() => setAccessMode('open')}
+            className={toggleBtnCls}
+            style={accessMode === 'open' ? toggleOnStyle : toggleOffStyle}
+          >
+            Open
+          </button>
+          <button
+            type="button"
+            onClick={() => setAccessMode('sequential')}
+            className={toggleBtnCls}
+            style={accessMode === 'sequential' ? toggleOnStyle : toggleOffStyle}
+          >
+            Sequential
+          </button>
+        </div>
+        <p className="mt-1.5 font-serif text-[12px] text-cream/40">
+          Open lets a member watch any released episode in any order. Sequential requires each episode to be completed before the next unlocks.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

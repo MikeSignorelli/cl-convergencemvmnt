@@ -35,3 +35,17 @@ export async function fetchVimeoOEmbed(url) {
     thumbnailUrl: data.thumbnail_url,
   }
 }
+
+// Formats an oEmbed duration (whole/fractional seconds) into a short
+// admin-facing label — "9 min", "1h", "1h 4m" — matching the shape of the
+// manual "24 min" placeholder already used for the Duration field
+// (EpisodesPanel). Returns '' for a missing/invalid input so callers can
+// safely drop it straight into that text field.
+export function formatDurationLabel(seconds) {
+  if (seconds == null || Number.isNaN(Number(seconds))) return ''
+  const totalMinutes = Math.round(Number(seconds) / 60)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours <= 0) return `${minutes} min`
+  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
+}

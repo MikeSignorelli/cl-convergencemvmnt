@@ -94,6 +94,7 @@ export async function updateCourse(id, fields) {
   if ('shortDescription' in fields) patch.short_description = fields.shortDescription || null
   if ('isSpecialProgram' in fields) patch.is_special_program = !!fields.isSpecialProgram
   if ('status' in fields) patch.status = fields.status || 'published'
+  if ('accessMode' in fields) patch.access_mode = fields.accessMode || 'open'
   if ('weeks' in fields) patch.weeks = fields.weeks || null
   if ('level' in fields) patch.level = fields.level || null
   if ('language' in fields) patch.language = fields.language || null

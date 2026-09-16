@@ -5,9 +5,24 @@ function decorate(rows) {
   const now = Date.now()
   return (rows || []).map((l) => ({
     ...l,
-    thumbnail_url: courseThumbnailUrl(l.thumbnail_path),
+    // l.thumbnail_url (only present on rows selected via admin_list_lessons,
+    // 0025) is the raw Vimeo-oEmbed thumbnail stored on course_lessons
+    // (0021) -- keep it under its own key before the next line overwrites
+    // `thumbnail_url` with the resolved DISPLAY url every existing consumer
+    // (CourseDetail.jsx, EpisodesPanel.jsx) already expects there: an
+    // uploaded Storage thumbnail when present, else that same Vimeo
+    // fallback.
+    vimeo_thumbnail_url: l.thumbnail_url ?? null,
+    thumbnail_url: courseThumbnailUrl(l.thumbnail_path) || l.thumbnail_url || null,
     // With fixed release dates: released if no date, or the date has passed.
     released: !l.release_at || new Date(l.release_at).getTime() <= now,
+    // Upcoming/overdue badges (EpisodesPanel): release_at in the future is
+    // "Upcoming". video_url is NOT NULL on this table (0017), so a bad/
+    // unparseable Vimeo link still saves a (broken) video_url -- vimeo_id
+    // being null is the practical signal that the saved link couldn't
+    // actually be resolved, which is what "Overdue -- no video" checks for.
+    is_upcoming: !!l.release_at && new Date(l.release_at).getTime() > now,
+    is_overdue_no_video: !!l.release_at && new Date(l.release_at).getTime() <= now && !l.vimeo_id,
   }))
 }
 
@@ -49,8 +64,14 @@ export async function createLesson({
   releaseAt,
   weekNumber,
   position,
+  vimeoId,
+  durationSeconds,
+  durationSource,
+  thumbnailUrl,
+  isOpenAccess,
 }) {
   const { data: userData } = await supabase.auth.getUser()
+  const uid = userData.user?.id ?? null
   const { error } = await supabase.from('course_lessons').insert({
     course_id: courseId,
     title,
@@ -62,15 +83,24 @@ export async function createLesson({
     release_at: releaseAt || null,
     week_number: weekNumber || null,
     position: position ?? 0,
-    created_by: userData.user?.id ?? null,
+    vimeo_id: vimeoId || null,
+    duration_seconds: durationSeconds ?? null,
+    duration_source: durationSource || null,
+    thumbnail_url: thumbnailUrl || null,
+    is_open_access: !!isOpenAccess,
+    created_by: uid,
+    updated_by: uid,
   })
   if (error) throw error
 }
 
 // Edit an existing episode. Only the fields passed change — omit thumbnailPath
-// to keep the current thumbnail.
+// to keep the current thumbnail. Always stamps updated_by with the current
+// admin (task #10) — every caller gets this for free, same as createLesson
+// already stamps created_by.
 export async function updateLesson(id, fields) {
-  const patch = {}
+  const { data: userData } = await supabase.auth.getUser()
+  const patch = { updated_by: userData.user?.id ?? null }
   if ('title' in fields) patch.title = fields.title
   if ('description' in fields) patch.description = fields.description || null
   if ('extraInfo' in fields) patch.extra_info = fields.extraInfo || null
@@ -80,6 +110,11 @@ export async function updateLesson(id, fields) {
   if ('releaseAt' in fields) patch.release_at = fields.releaseAt || null
   if ('weekNumber' in fields) patch.week_number = fields.weekNumber || null
   if ('position' in fields) patch.position = fields.position
+  if ('vimeoId' in fields) patch.vimeo_id = fields.vimeoId || null
+  if ('durationSeconds' in fields) patch.duration_seconds = fields.durationSeconds ?? null
+  if ('durationSource' in fields) patch.duration_source = fields.durationSource || null
+  if ('thumbnailUrl' in fields) patch.thumbnail_url = fields.thumbnailUrl || null
+  if ('isOpenAccess' in fields) patch.is_open_access = !!fields.isOpenAccess
   const { error } = await supabase.from('course_lessons').update(patch).eq('id', id)
   if (error) throw error
 }
@@ -88,6 +123,30 @@ export async function updateLesson(id, fields) {
 export async function swapLessonPositions(a, b) {
   await updateLesson(a.id, { position: b.position })
   await updateLesson(b.id, { position: a.position })
+}
+
+// Copies an existing (decorated, i.e. from adminListLessons) episode as a new
+// row — every field except id/created_at, title suffixed " (copy)" — at the
+// given position. created_by/updated_by are re-stamped fresh by createLesson
+// rather than copied, since this is a genuinely new row.
+export async function duplicateLesson(lesson, position) {
+  await createLesson({
+    courseId: lesson.course_id,
+    title: `${lesson.title} (copy)`,
+    description: lesson.description,
+    extraInfo: lesson.extra_info,
+    videoUrl: lesson.video_url,
+    thumbnailPath: lesson.thumbnail_path,
+    durationLabel: lesson.duration_label,
+    releaseAt: lesson.release_at,
+    weekNumber: lesson.week_number,
+    position,
+    vimeoId: lesson.vimeo_id,
+    durationSeconds: lesson.duration_seconds,
+    durationSource: lesson.duration_source,
+    thumbnailUrl: lesson.vimeo_thumbnail_url,
+    isOpenAccess: lesson.is_open_access,
+  })
 }
 
 export async function deleteLesson(id, thumbnailPath) {
