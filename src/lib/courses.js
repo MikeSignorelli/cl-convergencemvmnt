@@ -77,8 +77,12 @@ export async function createCourse({
 
 // Edit an existing course. Only the fields passed are changed — omit
 // thumbnailPath to keep the current thumbnail (pass it only on a new upload).
+// Always stamps updated_by with the current admin, the same convention
+// updateLesson (courseLessons.js, migration 0021) already uses for episodes —
+// every caller gets this for free without having to pass a user id through.
 export async function updateCourse(id, fields) {
-  const patch = {}
+  const { data: userData } = await supabase.auth.getUser()
+  const patch = { updated_by: userData.user?.id ?? null }
   if ('title' in fields) patch.title = fields.title
   if ('description' in fields) patch.description = fields.description || null
   if ('category' in fields) patch.category = fields.category || null
@@ -176,7 +180,7 @@ export async function adminListCourses() {
 export async function fetchCourse(id) {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, title, description, category, duration_label, visible_tiers, thumbnail_path, access_mode, created_at')
+    .select('id, title, description, category, duration_label, visible_tiers, thumbnail_path, access_mode, status, created_at')
     .eq('id', id)
     .is('deleted_at', null)
     .maybeSingle()

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { updateCourse, uploadCourseThumbnail, courseThumbnailUrl, isCourseSlugTaken, fetchCourseLessonsStats } from '../../lib/courses'
 import { listCategories, createCategory } from '../../lib/courseCategories'
 import { listStripeProducts, formatStripeProductLabel } from '../../lib/billing'
@@ -48,7 +48,20 @@ function findWeeksDecreaseError(stats, weeksValue) {
   return `${detail} — move or delete them before reducing to ${weeksValue} week${weeksValue === 1 ? '' : 's'}.`
 }
 
-export default function CourseDetailsPanel({ course, onSaved }) {
+// Design note (task #2, ManageCourse sticky Save/Draft/Publish bar): this
+// panel used to own its save button outright. The sticky bar now needs to
+// trigger a save from OUTSIDE this component (and, for autosave, without a
+// human ever pressing anything). Two ways to get there were on the table:
+// (a) lift all ~20 of this form's fields into ManageCourse.jsx as controlled
+// props, or (b) leave the fields right here and expose an imperative `save`
+// method via forwardRef/useImperativeHandle, plus an onDirtyChange callback
+// so the parent knows when there's something TO save. (b) is the smaller,
+// far less invasive diff — every field stays exactly where its own
+// change-handler already lives — so that's what's implemented below. The
+// panel's own submit button/"Saved" checkmark are gone; ManageCourse's
+// sticky bar is now the only Save/Save as draft/Publish control, and it
+// shows its own "Last saved" indicator instead.
+const CourseDetailsPanel = forwardRef(function CourseDetailsPanel({ course, onSaved, onDirtyChange }, ref) {
   const [title, setTitle] = useState(course.title || '')
   const [description, setDescription] = useState(course.description || '')
   const [categories, setCategories] = useState([])
@@ -84,10 +97,76 @@ export default function CourseDetailsPanel({ course, onSaved }) {
   const [visibleTiers, setVisibleTiers] = useState(course.visible_tiers?.length ? course.visible_tiers : TIERS)
   const [thumbnail, setThumbnail] = useState(null)
   const [error, setError] = useState('')
-  const [saved, setSaved] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
 
   const currentThumb = courseThumbnailUrl(course.thumbnail_path)
+
+  // Dirty tracking (tasks #3/#4): a plain snapshot-and-compare rather than a
+  // dirty flag toggled by every individual onChange — one place to keep in
+  // sync as fields are added, instead of twenty. Every string field is
+  // normalized the same way doSave normalizes it before persisting (trimmed;
+  // slug additionally run through slugify) — comparing raw, un-trimmed input
+  // state against the trimmed values that actually got saved would otherwise
+  // leave `dirty` stuck true forever after a save whenever a field has
+  // incidental leading/trailing whitespace or an un-normalized slug.
+  // baselineRef starts as exactly those values, derived from `course` (this
+  // panel mounts fresh whenever the admin returns to the Details tab, so
+  // "fresh from `course`" is always the right starting baseline), and is
+  // advanced to the just-saved values after every successful save, so the
+  // very next render already reads as clean again.
+  function buildSnapshot() {
+    return {
+      title: title.trim(),
+      description: description.trim(),
+      categoryId: categoryId || '',
+      slug: slugify(slug || title) || '',
+      shortDescription: shortDescription.trim(),
+      status,
+      isSpecialProgram,
+      accessMode,
+      weeks,
+      level: level.trim(),
+      language: language.trim(),
+      learningOutcomes: learningOutcomes.trim(),
+      prerequisites: prerequisites.trim(),
+      featured,
+      price,
+      stripePriceId: stripePriceId.trim(),
+      stripeProductId: stripeProductId.trim(),
+      visibleTiers,
+      hasThumbnail: !!thumbnail,
+    }
+  }
+  const baselineRef = useRef({
+    title: (course.title || '').trim(),
+    description: (course.description || '').trim(),
+    categoryId: course.category_id || '',
+    slug: slugify(course.slug || course.title || '') || '',
+    shortDescription: (course.short_description || '').trim(),
+    status: course.status || 'published',
+    isSpecialProgram: !!course.is_special_program,
+    accessMode: course.access_mode || 'open',
+    weeks: course.weeks != null ? String(course.weeks) : '',
+    level: (course.level || '').trim(),
+    language: (course.language || '').trim(),
+    learningOutcomes: (course.learning_outcomes || '').trim(),
+    prerequisites: (course.prerequisites || '').trim(),
+    featured: !!course.featured,
+    price: course.price_cents ? (course.price_cents / 100).toString() : '',
+    stripePriceId: (course.stripe_price_id || '').trim(),
+    stripeProductId: (course.stripe_product_id || '').trim(),
+    visibleTiers: course.visible_tiers?.length ? course.visible_tiers : TIERS,
+    hasThumbnail: false,
+  })
+  const dirty = JSON.stringify(buildSnapshot()) !== JSON.stringify(baselineRef.current)
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty])
+  // Tell the parent this instance is gone (rather than just quietly dirty=false)
+  // when the admin navigates off the Details tab entirely, so ManageCourse
+  // never keeps stale dirty/last-saved state around for a panel that no
+  // longer exists.
+  useEffect(() => () => onDirtyChange?.(false), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Powers the read-only "Duration & episodes" summary — fetched once on
   // mount (this panel remounts fresh whenever the admin switches back to the
@@ -206,21 +285,35 @@ export default function CourseDetailsPanel({ course, onSaved }) {
     }
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault()
+  // The actual save logic, callable both from this form's own onSubmit (Enter
+  // key) and imperatively via the ref (ManageCourse's sticky Save/Save as
+  // draft/Publish bar, plus its autosave timer) — see the design note above
+  // the component. `statusOverride` is only ever passed by "Save as draft" /
+  // "Publish"; a plain "Save" (or autosave) leaves the course's own status
+  // field untouched. Returns true on a successful save, false otherwise, so
+  // callers can decide whether to update a "Last saved" timestamp.
+  async function doSave(statusOverride) {
     setError('')
     setSlugError('')
-    setSaved(false)
-    if (!title.trim()) return setError('Enter a title.')
-    if (visibleTiers.length === 0) return setError('Select at least one tier.')
+    if (!title.trim()) {
+      setError('Enter a title.')
+      return false
+    }
+    if (visibleTiers.length === 0) {
+      setError('Select at least one tier.')
+      return false
+    }
 
     const finalSlug = slugify(slug || title)
-    if (!finalSlug) return setError('Enter a slug (or a title to derive one from).')
+    if (!finalSlug) {
+      setError('Enter a slug (or a title to derive one from).')
+      return false
+    }
 
+    const nextStatus = statusOverride || status
     const weeksValue = weeks.trim() ? parseInt(weeks, 10) : null
     const weeksDecreasing = weeksValue != null && course.weeks != null && weeksValue < course.weeks
 
-    setSubmitting(true)
     try {
       // Uniqueness pre-check (task #1): the DB's partial unique index
       // (courses_slug_unique_idx, migration 0021) is a real backstop, but a
@@ -235,60 +328,82 @@ export default function CourseDetailsPanel({ course, onSaved }) {
 
       if (slugTaken) {
         setSlugError(`The slug "${finalSlug}" is already used by another course. Choose a different one.`)
-      } else if (weeksBlockError) {
-        setError(weeksBlockError)
-      } else {
-        // Write-through: the selected category's NAME also goes into the
-        // legacy free-text `category` column (0014) alongside the new
-        // `categoryId` FK, so CourseLibrary.jsx / Programs.jsx and anywhere
-        // else that still reads courses.category keep working unchanged. Falls
-        // back to the course's existing text if the dropdown selection wasn't
-        // touched and hasn't finished loading yet / no longer matches a known
-        // category, so an unrelated save never blanks it out.
-        const selectedCategory = categories.find((c) => c.id === categoryId)
-        const categoryName = selectedCategory
-          ? selectedCategory.name
-          : categoryId && categoryId === course.category_id
-            ? course.category || ''
-            : ''
-        const fields = {
-          title: title.trim(),
-          description: description.trim(),
-          categoryId: categoryId || null,
-          category: categoryName,
-          featured,
-          priceCents: Math.round(parseFloat(price || '0') * 100) || 0,
-          stripePriceId: stripePriceId.trim(),
-          stripeProductId: stripeProductId.trim(),
-          visibleTiers,
-          slug: finalSlug,
-          shortDescription: shortDescription.trim(),
-          isSpecialProgram,
-          status,
-          accessMode,
-          weeks: weeksValue,
-          level: level.trim(),
-          language: language.trim(),
-          learningOutcomes: learningOutcomes.trim(),
-          prerequisites: prerequisites.trim(),
-        }
-        if (thumbnail) {
-          const uploaded = await uploadCourseThumbnail(thumbnail)
-          fields.thumbnailPath = uploaded.path
-        }
-        await updateCourse(course.id, fields)
-        setThumbnail(null)
-        setSaved(true)
-        onSaved?.()
+        return false
       }
+      if (weeksBlockError) {
+        setError(weeksBlockError)
+        return false
+      }
+
+      // Write-through: the selected category's NAME also goes into the
+      // legacy free-text `category` column (0014) alongside the new
+      // `categoryId` FK, so CourseLibrary.jsx / Programs.jsx and anywhere
+      // else that still reads courses.category keep working unchanged. Falls
+      // back to the course's existing text if the dropdown selection wasn't
+      // touched and hasn't finished loading yet / no longer matches a known
+      // category, so an unrelated save never blanks it out.
+      const selectedCategory = categories.find((c) => c.id === categoryId)
+      const categoryName = selectedCategory
+        ? selectedCategory.name
+        : categoryId && categoryId === course.category_id
+          ? course.category || ''
+          : ''
+      const fields = {
+        title: title.trim(),
+        description: description.trim(),
+        categoryId: categoryId || null,
+        category: categoryName,
+        featured,
+        priceCents: Math.round(parseFloat(price || '0') * 100) || 0,
+        stripePriceId: stripePriceId.trim(),
+        stripeProductId: stripeProductId.trim(),
+        visibleTiers,
+        slug: finalSlug,
+        shortDescription: shortDescription.trim(),
+        isSpecialProgram,
+        status: nextStatus,
+        accessMode,
+        weeks: weeksValue,
+        level: level.trim(),
+        language: language.trim(),
+        learningOutcomes: learningOutcomes.trim(),
+        prerequisites: prerequisites.trim(),
+      }
+      if (thumbnail) {
+        const uploaded = await uploadCourseThumbnail(thumbnail)
+        fields.thumbnailPath = uploaded.path
+      }
+      await updateCourse(course.id, fields)
+      setThumbnail(null)
+      if (statusOverride) setStatus(statusOverride)
+      // Move the dirty-check baseline forward to exactly what was just
+      // written, so `dirty` reads false again the instant this resolves.
+      // Reuses buildSnapshot() for every field it already normalizes the
+      // same way `fields` above does; `status` is overridden explicitly
+      // because setStatus() above hasn't re-rendered yet, so buildSnapshot()
+      // would otherwise still read the pre-save `status` closure value.
+      baselineRef.current = { ...buildSnapshot(), status: nextStatus, hasThumbnail: false }
+      onSaved?.()
+      return true
     } catch (err) {
       setError(err.message || 'Could not save the course.')
+      return false
     }
-    setSubmitting(false)
+  }
+
+  // No deps array: intentionally rebuilt every render so `save` always
+  // closes over the latest field values (this form has ~20 of them — not
+  // worth a matching ~20-entry dependency list just to memoize a plain
+  // function object).
+  useImperativeHandle(ref, () => ({ save: doSave }))
+
+  async function handleFormSubmit(e) {
+    e.preventDefault()
+    await doSave()
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-6">
+    <form onSubmit={handleFormSubmit} className="flex flex-col gap-4 rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-6">
       <div>
         <label className={labelCls}>Title</label>
         <input type="text" value={title} onChange={handleTitleChange} className={inputCls} />
@@ -544,12 +659,12 @@ export default function CourseDetailsPanel({ course, onSaved }) {
       </div>
 
       {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
-      <div className="flex items-center gap-3">
-        <button type="submit" disabled={submitting} className="w-fit cursor-pointer rounded-full border-none bg-gold px-8 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60">
-          {submitting ? 'Saving…' : 'Save changes'}
-        </button>
-        {saved && <span className="font-serif text-[13px] text-[#9BC08A]">Saved ✓</span>}
-      </div>
+      {/* No submit button here anymore — ManageCourse's sticky Save / Save as
+          draft / Publish bar is the only way to save this tab now (see the
+          design note above). Pressing Enter in a field still submits this
+          form via handleFormSubmit, same as a plain "Save" from that bar. */}
     </form>
   )
-}
+})
+
+export default CourseDetailsPanel

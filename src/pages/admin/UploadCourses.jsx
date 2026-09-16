@@ -2,15 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
-import { adminListCourses, createCourse, deleteCourse, duplicateCourse, uploadCourseThumbnail } from '../../lib/courses'
-import { createLesson } from '../../lib/courseLessons'
+import { adminListCourses, deleteCourse, duplicateCourse } from '../../lib/courses'
 import { formatPrice } from '../../lib/billing'
 
-const TIERS = ['disciple', 'leader', 'pastor']
 const STATUSES = ['draft', 'published', 'archived']
 const PAGE_SIZE = 20
-const inputCls = 'w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none'
-const labelCls = 'mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50'
 const selectCls = 'w-auto cursor-pointer rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-2.5 font-serif text-[13.5px] text-cream outline-none'
 
 function capitalize(word) {
@@ -38,21 +34,7 @@ export default function UploadCourses() {
   const navigate = useNavigate()
   const [courses, setCourses] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [category, setCategory] = useState('')
-  const [durationLabel, setDurationLabel] = useState('')
-  const [featured, setFeatured] = useState(false)
-  const [price, setPrice] = useState('')
-  const [stripePriceId, setStripePriceId] = useState('')
-  const [visibleTiers, setVisibleTiers] = useState(TIERS)
-  const [thumbnail, setThumbnail] = useState(null)
-  const [firstTitle, setFirstTitle] = useState('')
-  const [firstVideoUrl, setFirstVideoUrl] = useState('')
   const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
 
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
@@ -74,67 +56,6 @@ export default function UploadCourses() {
     refresh()
   }, [])
 
-  function resetForm() {
-    setTitle('')
-    setDescription('')
-    setCategory('')
-    setDurationLabel('')
-    setFeatured(false)
-    setPrice('')
-    setStripePriceId('')
-    setVisibleTiers(TIERS)
-    setThumbnail(null)
-    setFirstTitle('')
-    setFirstVideoUrl('')
-    setError('')
-  }
-
-  function toggleTier(tier) {
-    setVisibleTiers((prev) => (prev.includes(tier) ? prev.filter((t) => t !== tier) : [...prev, tier]))
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setError('')
-    if (!title.trim()) return setError('Enter a title.')
-    if (visibleTiers.length === 0) return setError('Select at least one tier.')
-    setSubmitting(true)
-    try {
-      const fields = {
-        title: title.trim(),
-        description: description.trim(),
-        category: category.trim(),
-        durationLabel: durationLabel.trim(),
-        featured,
-        priceCents: Math.round(parseFloat(price || '0') * 100) || 0,
-        stripePriceId: stripePriceId.trim(),
-        visibleTiers,
-      }
-      if (thumbnail) {
-        const uploaded = await uploadCourseThumbnail(thumbnail)
-        fields.thumbnailPath = uploaded.path
-      }
-      const created = await createCourse(fields)
-      // If a first video link was given, seed it as Week 1 so the course isn't
-      // empty — the rest of the episodes get added from the course's Episodes tab.
-      if (firstVideoUrl.trim() && created?.id) {
-        await createLesson({
-          courseId: created.id,
-          title: firstTitle.trim() || 'Week 1',
-          videoUrl: firstVideoUrl.trim(),
-          weekNumber: 1,
-          position: 0,
-        })
-      }
-      resetForm()
-      setShowForm(false)
-      await refresh()
-    } catch (err) {
-      setError(err.message || 'Could not create this course.')
-    }
-    setSubmitting(false)
-  }
-
   async function handleDelete(course) {
     if (!window.confirm(`Remove “${course.title}” from the site? It disappears everywhere immediately, but nothing is permanently deleted.`)) return
     try {
@@ -150,7 +71,7 @@ export default function UploadCourses() {
     setDuplicatingId(course.id)
     try {
       const created = await duplicateCourse(course.id)
-      navigate(`/admin/courses/${created.id}`)
+      navigate(`/admin/courses/${created.id}/edit`)
     } catch (err) {
       setError(err.message || 'Could not duplicate this course.')
       setDuplicatingId(null)
@@ -213,99 +134,15 @@ export default function UploadCourses() {
                 Click a course to manage its details, episodes, and resources.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => { setShowForm((v) => !v); setError('') }}
-              className="shrink-0 cursor-pointer rounded-full border-none bg-gold px-6 py-3 font-sans text-[12.5px] font-semibold uppercase tracking-[0.12em] text-ink"
+            <Link
+              to="/admin/courses/new"
+              className="shrink-0 cursor-pointer rounded-full border-none bg-gold px-6 py-3 font-sans text-[12.5px] font-semibold uppercase tracking-[0.12em] text-ink no-underline"
             >
-              {showForm ? 'Close' : '+ New course'}
-            </button>
+              + New course
+            </Link>
           </div>
 
-          {showForm && (
-            <form onSubmit={handleSubmit} className="mb-8 flex flex-col gap-4 rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-6">
-              <div>
-                <label className={labelCls}>Title</label>
-                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Description (optional)</label>
-                <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} className={inputCls} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls}>Category</label>
-                  <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Freedom & Healing" className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Duration / episodes (optional)</label>
-                  <input type="text" value={durationLabel} onChange={(e) => setDurationLabel(e.target.value)} placeholder="12 weeks · 36 episodes" className={inputCls} />
-                </div>
-              </div>
-              <label className="flex w-fit cursor-pointer items-center gap-2.5 font-serif text-[13.5px] text-cream/70">
-                <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
-                Feature this course in the library's hero banner
-              </label>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls}>Standalone price (USD — 0 for membership-only)</label>
-                  <input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="497.00" className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Stripe Price ID (optional)</label>
-                  <input type="text" value={stripePriceId} onChange={(e) => setStripePriceId(e.target.value)} placeholder="price_…" className={inputCls} />
-                </div>
-              </div>
-              <div>
-                <label className={labelCls}>Visible to (which memberships see this course)</label>
-                <div className="flex flex-wrap gap-2.5">
-                  {TIERS.map((tier) => (
-                    <button
-                      key={tier}
-                      type="button"
-                      onClick={() => toggleTier(tier)}
-                      className="cursor-pointer rounded-full px-5 py-2 font-sans text-[11.5px] font-semibold uppercase tracking-[0.08em]"
-                      style={
-                        visibleTiers.includes(tier)
-                          ? { background: '#C2A064', color: '#171C10' }
-                          : { background: 'transparent', border: '1px solid rgba(240,238,229,0.16)', color: 'rgba(240,238,229,0.7)' }
-                      }
-                    >
-                      {tier}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className={labelCls}>Course thumbnail (optional)</label>
-                <input type="file" accept="image/*" onChange={(e) => setThumbnail(e.target.files?.[0] || null)} className="w-full font-serif text-[13.5px] text-cream/70" />
-              </div>
-
-              <div className="rounded-[10px] border border-dashed border-cream/[0.14] px-5 py-5">
-                <p className="mb-3 font-sans text-[11px] font-semibold uppercase tracking-[0.14em] text-cream/50">First episode (optional)</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelCls}>Episode name</label>
-                    <input type="text" value={firstTitle} onChange={(e) => setFirstTitle(e.target.value)} placeholder="Introduction" className={inputCls} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Video link (Vimeo)</label>
-                    <input type="url" value={firstVideoUrl} onChange={(e) => setFirstVideoUrl(e.target.value)} placeholder="https://vimeo.com/…" className={inputCls} />
-                  </div>
-                </div>
-                <p className="mt-2.5 font-serif text-[12px] text-cream/40">
-                  Paste a Vimeo link to publish it as Week 1 right away. Add the remaining weeks — each with its own release date — from the course's Episodes tab.
-                </p>
-              </div>
-
-              {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
-              <button type="submit" disabled={submitting} className="w-fit cursor-pointer rounded-full border-none bg-gold px-8 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60">
-                {submitting ? 'Creating…' : 'Create course'}
-              </button>
-            </form>
-          )}
-
-          {error && !showForm && <p className="mb-4 font-serif text-[13px] text-[#D8888A]">{error}</p>}
+          {error && <p className="mb-4 font-serif text-[13px] text-[#D8888A]">{error}</p>}
 
           {!loading && courses.length > 0 && (
             <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -351,7 +188,7 @@ export default function UploadCourses() {
                 {!loading && pageCourses.map((c) => (
                   <tr
                     key={c.id}
-                    onClick={() => navigate(`/admin/courses/${c.id}`)}
+                    onClick={() => navigate(`/admin/courses/${c.id}/edit`)}
                     className="cursor-pointer border-b border-cream/[0.06] last:border-b-0 hover:bg-cream/[0.03]"
                   >
                     <td className="px-5 py-3.5 font-sans text-sm font-medium">
@@ -366,7 +203,7 @@ export default function UploadCourses() {
                     <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{c.visible_tiers.join(', ')}</td>
                     <td className="whitespace-nowrap px-5 py-3.5 text-right">
                       <Link
-                        to={`/admin/courses/${c.id}`}
+                        to={`/admin/courses/${c.id}/edit`}
                         onClick={(e) => e.stopPropagation()}
                         className="mr-4 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-gold no-underline"
                       >

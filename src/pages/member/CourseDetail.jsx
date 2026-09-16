@@ -96,6 +96,15 @@ export default function CourseDetail() {
     (profile?.subscription_status === 'active' && course?.visible_tiers?.includes(profile?.tier)) ||
     (!!course && purchasedCourseIds.includes(course.id))
 
+  // Task #5 (ManageCourse "Preview as user"): status is new on courses (0021)
+  // and fetchCourse() didn't select it at all before this — a draft/archived
+  // course was reachable by anyone who had (or guessed) its URL. Mirrors the
+  // admin-bypass pattern already used everywhere else on this page (isAdmin
+  // short-circuits release-date/sequential gates too): a normal member only
+  // ever sees a published course, while an admin can open any status,
+  // including from the ManageCourse "Preview as user" link.
+  const courseVisible = !course || !course.status || course.status === 'published' || isAdmin
+
   // Default to the first released episode (admins get the first, released or not).
   useEffect(() => {
     if (selectedId || episodes.length === 0) return
@@ -142,7 +151,17 @@ export default function CourseDetail() {
     }
   }
 
-  if (!loading && !error && course && !hasPaidAccess) {
+  if (!loading && !error && course && !courseVisible) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ink font-sans text-cream">
+        <p className="font-serif text-cream/60">
+          Course not found. <Link to="/courses" className="text-gold">Back to courses</Link>
+        </p>
+      </div>
+    )
+  }
+
+  if (!loading && !error && course && courseVisible && !hasPaidAccess) {
     return <PaymentWall status={profile?.subscription_status} />
   }
 

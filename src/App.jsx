@@ -26,6 +26,7 @@ import FinishSetup    from './pages/member/FinishSetup'
 import Members            from './pages/admin/Members'
 import UploadResources    from './pages/admin/UploadResources'
 import UploadCourses      from './pages/admin/UploadCourses'
+import NewCourse          from './pages/admin/NewCourse'
 import ManageCourse       from './pages/admin/ManageCourse'
 import UploadLiveSessions from './pages/admin/UploadLiveSessions'
 import Analytics          from './pages/admin/Analytics'
@@ -53,7 +54,13 @@ export default function App() {
         <Route path="/dashboard"      element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/admin/members"  element={<RequireAuth adminOnly><Members /></RequireAuth>} />
         <Route path="/admin/courses" element={<RequireAuth adminOnly><UploadCourses /></RequireAuth>} />
+        <Route path="/admin/courses/new" element={<RequireAuth adminOnly><NewCourse /></RequireAuth>} />
+        {/* /:courseId is the old (pre-dedicated-create-page) canonical URL for the
+            editor — kept rendering the same component so bookmarked/linked
+            copies of it keep working, per task #1. /:courseId/edit is the new
+            canonical URL every in-app link now points to. */}
         <Route path="/admin/courses/:courseId" element={<RequireAuth adminOnly><ManageCourse /></RequireAuth>} />
+        <Route path="/admin/courses/:courseId/edit" element={<RequireAuth adminOnly><ManageCourse /></RequireAuth>} />
         <Route path="/admin/courses/:courseId/episodes" element={<RequireAuth adminOnly><ManageCourse /></RequireAuth>} />
         <Route path="/admin/analytics" element={<RequireAuth adminOnly><Analytics /></RequireAuth>} />
         <Route path="/admin/settings" element={<RequireAuth adminOnly><AdminSettings /></RequireAuth>} />
