@@ -5,7 +5,13 @@ import PaymentWall from '../../components/PaymentWall'
 import UpgradeLock from '../../components/UpgradeLock'
 import VimeoPlayer from '../../components/VimeoPlayer'
 import { fetchCourse } from '../../lib/courses'
-import { listCourseLessons, fetchLessonVideoUrl, fetchLessonProgress, saveLessonProgress } from '../../lib/courseLessons'
+import {
+  listCourseLessons,
+  fetchLessonVideoUrl,
+  fetchLessonProgress,
+  fetchCourseLessonProgress,
+  saveLessonProgress,
+} from '../../lib/courseLessons'
 import { listCourseResources, getResourceDownloadUrl } from '../../lib/resources'
 import { useAuth } from '../../lib/AuthContext'
 
@@ -23,12 +29,28 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
+// Client-side mirror of the server's sequential-access rule (get_lesson_video_url,
+// migration 0027) — a UX nicety only, not the real gate: the RPC below still
+// returns null (and the video just won't load) if this ever disagrees with it.
+// `episodes` is already ordered by `position` (listCourseLessons), the same
+// ordering the server's own "immediately previous lesson" check is built on,
+// so index - 1 is that same predecessor for every course whose episodes were
+// laid out through the admin panel.
+function isSequentiallyLocked(ep, index, episodes, course, progressByLesson, isAdmin) {
+  if (isAdmin || !ep || course?.access_mode !== 'sequential' || ep.is_open_access || index <= 0) {
+    return false
+  }
+  const prev = episodes[index - 1]
+  return !!prev && !progressByLesson[prev.id]?.completed
+}
+
 export default function CourseDetail() {
   const { id } = useParams()
   const { profile, isAdmin, purchasedCourseIds, hasAnyPurchase } = useAuth()
   const [course, setCourse] = useState(null)
   const [episodes, setEpisodes] = useState([])
   const [resources, setResources] = useState([])
+  const [progressByLesson, setProgressByLesson] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedId, setSelectedId] = useState(null)
@@ -40,10 +62,11 @@ export default function CourseDetail() {
     let cancelled = false
     async function load() {
       try {
-        const [courseData, eps, res] = await Promise.all([
+        const [courseData, eps, res, progress] = await Promise.all([
           fetchCourse(id),
           listCourseLessons(id),
           listCourseResources(id).catch(() => []),
+          fetchCourseLessonProgress(id).catch(() => ({})),
         ])
         if (cancelled) return
         if (!courseData) setError('Course not found.')
@@ -51,6 +74,7 @@ export default function CourseDetail() {
           setCourse(courseData)
           setEpisodes(eps)
           setResources(res)
+          setProgressByLesson(progress)
         }
       } catch (err) {
         if (!cancelled) setError(err.message)
@@ -101,7 +125,9 @@ export default function CourseDetail() {
     }
   }, [selectedId, hasCourseAccess])
 
-  const selected = episodes.find((e) => e.id === selectedId) || null
+  const selectedIndex = episodes.findIndex((e) => e.id === selectedId)
+  const selected = selectedIndex >= 0 ? episodes[selectedIndex] : null
+  const selectedSequentiallyLocked = isSequentiallyLocked(selected, selectedIndex, episodes, course, progressByLesson, isAdmin)
 
   async function openResource(r) {
     if (r.external_url) {
@@ -167,7 +193,17 @@ export default function CourseDetail() {
                   <div className={boxCls}>
                     <span className="font-serif text-cream/50">No episodes published yet.</span>
                   </div>
-                ) : selected.released || isAdmin ? (
+                ) : !(selected.released || isAdmin) ? (
+                  <div className={`${boxCls} flex-col gap-2`}>
+                    <span className="font-sans text-[12px] font-semibold uppercase tracking-[0.12em] text-[#E9CF9C]">Unlocks {fmtDate(selected.release_at)}</span>
+                    <span className="font-serif text-cream/50">This episode isn&rsquo;t available yet.</span>
+                  </div>
+                ) : selectedSequentiallyLocked ? (
+                  <div className={`${boxCls} flex-col gap-2`}>
+                    <span className="font-sans text-[12px] font-semibold uppercase tracking-[0.12em] text-[#E9CF9C]">Locked</span>
+                    <span className="font-serif text-cream/50">Finish the previous episode first.</span>
+                  </div>
+                ) : (
                   lessonLoading ? (
                     <div className={boxCls}><span className="font-serif text-cream/50">Loading video…</span></div>
                   ) : lessonUrl ? (
@@ -198,19 +234,20 @@ export default function CourseDetail() {
                   ) : (
                     <div className={boxCls}><span className="font-serif text-cream/50">This episode doesn&rsquo;t have a video yet.</span></div>
                   )
-                ) : (
-                  <div className={`${boxCls} flex-col gap-2`}>
-                    <span className="font-sans text-[12px] font-semibold uppercase tracking-[0.12em] text-[#E9CF9C]">Unlocks {fmtDate(selected.release_at)}</span>
-                    <span className="font-serif text-cream/50">This episode isn&rsquo;t available yet.</span>
-                  </div>
                 )}
 
                 {episodes.length > 0 && (
                   <div className="mt-6 flex flex-col gap-2">
                     <h2 className="mb-1 font-sans text-[13px] font-bold uppercase tracking-[0.12em] text-white/80">Episodes</h2>
                     {episodes.map((ep, i) => {
-                      const playable = ep.released || isAdmin
+                      const sequentiallyLocked = isSequentiallyLocked(ep, i, episodes, course, progressByLesson, isAdmin)
+                      const playable = (ep.released || isAdmin) && !sequentiallyLocked
                       const isSel = ep.id === selectedId
+                      const lockReason = !ep.released
+                        ? `Unlocks ${fmtDate(ep.release_at)}`
+                        : sequentiallyLocked
+                          ? 'Finish the previous episode first'
+                          : null
                       return (
                         <button
                           key={ep.id}
@@ -234,7 +271,7 @@ export default function CourseDetail() {
                             )}
                             <div className="truncate font-sans text-[14px] font-semibold text-white">{ep.title}</div>
                             <div className="font-serif text-[12.5px] text-cream/50">
-                              {ep.released ? ep.duration_label || 'Available now' : `Unlocks ${fmtDate(ep.release_at)}`}
+                              {lockReason || ep.duration_label || 'Available now'}
                             </div>
                           </div>
                           {isSel && playable && (

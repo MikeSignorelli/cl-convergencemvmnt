@@ -171,7 +171,7 @@ export async function adminListCourses() {
 export async function fetchCourse(id) {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, title, description, category, duration_label, visible_tiers, thumbnail_path, created_at')
+    .select('id, title, description, category, duration_label, visible_tiers, thumbnail_path, access_mode, created_at')
     .eq('id', id)
     .maybeSingle()
   if (error) throw error

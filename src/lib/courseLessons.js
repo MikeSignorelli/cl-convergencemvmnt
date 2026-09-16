@@ -31,7 +31,7 @@ function decorate(rows) {
 export async function listCourseLessons(courseId) {
   const { data, error } = await supabase
     .from('course_lessons')
-    .select('id, course_id, title, description, extra_info, thumbnail_path, duration_label, release_at, week_number, position, created_at')
+    .select('id, course_id, title, description, extra_info, thumbnail_path, duration_label, release_at, week_number, is_open_access, position, created_at')
     .eq('course_id', courseId)
     .order('position', { ascending: true })
   if (error) throw error
@@ -185,6 +185,27 @@ export async function fetchLessonProgress(lessonId) {
     .eq('lesson_id', lessonId)
     .maybeSingle()
   return data
+}
+
+// Every one of the current member's progress rows for one course, keyed by
+// lesson_id — {[lessonId]: {completed, percent, seconds}}. RLS ("users
+// manage their own progress", 0019) already scopes lesson_progress to
+// auth.uid(), same as fetchLessonProgress above; this just fetches the
+// whole course's rows in one query instead of one lesson at a time, so
+// CourseDetail.jsx can look up "has the member finished lesson X?" for
+// every episode (the access_mode 'sequential' lock-reason UI) without a
+// round trip per episode.
+export async function fetchCourseLessonProgress(courseId) {
+  const { data, error } = await supabase
+    .from('lesson_progress')
+    .select('lesson_id, completed, percent, seconds')
+    .eq('course_id', courseId)
+  if (error) throw error
+  const byLessonId = {}
+  for (const row of data || []) {
+    byLessonId[row.lesson_id] = { completed: row.completed, percent: row.percent, seconds: row.seconds }
+  }
+  return byLessonId
 }
 
 // Most-recently-watched, not-yet-finished episode — powers the dashboard card.
