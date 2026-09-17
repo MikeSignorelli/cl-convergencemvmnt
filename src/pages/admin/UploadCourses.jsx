@@ -7,6 +7,7 @@ import { formatPrice } from '../../lib/billing'
 import { fetchUnresolvedCourseHealthFlags, runCourseHealthCheck } from '../../lib/courseHealth'
 
 const STATUSES = ['draft', 'published', 'archived']
+const ROLES = ['disciple', 'leader', 'pastor']
 const PAGE_SIZE = 20
 const selectCls = 'w-auto cursor-pointer rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-2.5 font-serif text-[13.5px] text-cream outline-none'
 
@@ -49,6 +50,7 @@ export default function UploadCourses() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [roleFilter, setRoleFilter] = useState('all')
   const [sortBy, setSortBy] = useState('created_desc')
   const [page, setPage] = useState(1)
   const [duplicatingId, setDuplicatingId] = useState(null)
@@ -140,6 +142,7 @@ export default function UploadCourses() {
       if (q && !c.title.toLowerCase().includes(q)) return false
       if (categoryFilter !== 'all' && c.category !== categoryFilter) return false
       if (statusFilter !== 'all' && (c.status || 'draft') !== statusFilter) return false
+      if (roleFilter !== 'all' && !(c.visible_tiers || []).includes(roleFilter)) return false
       return true
     })
     return filtered.sort((a, b) => {
@@ -155,13 +158,13 @@ export default function UploadCourses() {
           return new Date(b.created_at) - new Date(a.created_at)
       }
     })
-  }, [courses, search, categoryFilter, statusFilter, sortBy])
+  }, [courses, search, categoryFilter, statusFilter, roleFilter, sortBy])
 
   // Reset to page 1 whenever the filtered set could change shape, so a stale
   // page number never shows a blank page of results.
   useEffect(() => {
     setPage(1)
-  }, [search, categoryFilter, statusFilter, sortBy])
+  }, [search, categoryFilter, statusFilter, roleFilter, sortBy])
 
   const pageCount = Math.max(1, Math.ceil(filteredCourses.length / PAGE_SIZE))
   const currentPage = Math.min(page, pageCount)
@@ -257,6 +260,12 @@ export default function UploadCourses() {
                 <option value="all">All statuses</option>
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>{capitalize(s)}</option>
+                ))}
+              </select>
+              <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} style={{ colorScheme: 'dark' }} className={selectCls}>
+                <option value="all">All roles</option>
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>{capitalize(r)}</option>
                 ))}
               </select>
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ colorScheme: 'dark' }} className={`${selectCls} ml-auto`}>
