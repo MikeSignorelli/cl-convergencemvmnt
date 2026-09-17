@@ -575,13 +575,16 @@ export default function EpisodesPanel({ courseId, weeks }) {
 
     return (
       <form onSubmit={handleSubmit} className="mb-6 flex flex-col gap-4 rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-6">
-        <div className={`grid gap-4 ${formTarget.mode === 'edit' ? 'grid-cols-[90px_1fr_1fr]' : 'grid-cols-2'}`}>
-          {formTarget.mode === 'edit' && (
-            <div>
-              <label className={labelCls}>Week</label>
-              <input type="number" min="1" value={form.weekNumber} onChange={(e) => setField('weekNumber', e.target.value)} placeholder="1" className={inputCls} />
-            </div>
-          )}
+        <div className="grid grid-cols-[130px_1fr_1fr] gap-4">
+          <div>
+            <label className={labelCls}>Week</label>
+            <select value={form.weekNumber} onChange={(e) => setField('weekNumber', e.target.value)} className={inputCls}>
+              <option value="">Unassigned</option>
+              {Array.from({ length: weeksCount }, (_, i) => i + 1).map((wk) => (
+                <option key={wk} value={wk}>Week {wk}</option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className={labelCls}>Episode name</label>
             <input type="text" value={form.title} onChange={(e) => setField('title', e.target.value)} placeholder="Identifying Root Beliefs" className={inputCls} />
