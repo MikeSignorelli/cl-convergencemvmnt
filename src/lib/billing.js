@@ -49,46 +49,6 @@ export function formatPrice(cents) {
   return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`
 }
 
-// Fetches active Stripe Prices (id + amount + currency + interval) alongside
-// their Product name, via the list-stripe-products Edge Function — never
-// called directly from a component, only through this wrapper, so Stripe is
-// only ever reached from server-side code. Admin-only: the function itself
-// rejects with a 403 for a non-admin caller. Cached server-side for 5
-// minutes; pass refresh=true (e.g. a "Refresh from Stripe" button) to bypass
-// that cache and force a live re-fetch.
-export async function listStripeProducts(refresh = false) {
-  const { data, error } = await supabase.functions.invoke('list-stripe-products', {
-    body: { refresh },
-  })
-  if (error) throw error
-  return data || []
-}
-
-// Pure formatting helper — no supabase/network dependency — so it can be
-// unit-tested on its own (see billing.test.js) without touching the rest of
-// this module. Turns one { productName, amount, currency, interval } row
-// from listStripeProducts() into the label shown in the
-// CourseDetailsPanel dropdown, e.g. "Foundations $497.00 (one-time)" or
-// "Membership $49.00 per month". `amount` is in cents, as Stripe returns it;
-// `interval` is null for a one-time price, else Stripe's recurring interval
-// ('month', 'year', etc).
-export function formatStripeProductLabel({ productName, amount, currency, interval }) {
-  const amountLabel = formatStripeAmount(amount, currency)
-  return interval ? `${productName} ${amountLabel} per ${interval}` : `${productName} ${amountLabel} (one-time)`
-}
-
-function formatStripeAmount(amount, currency) {
-  if (amount == null) return 'Custom pricing'
-  try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: (currency || 'usd').toUpperCase(),
-    }).format(amount / 100)
-  } catch {
-    return `${(amount / 100).toFixed(2)} ${(currency || '').toUpperCase()}`
-  }
-}
-
 // Everything the Payment History page needs, in one call to the
 // get-billing-summary Edge Function (which reads live Stripe data server-side
 // — membership charges aren't stored in our DB, only subscription_status is).

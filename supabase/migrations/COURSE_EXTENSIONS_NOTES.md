@@ -98,8 +98,9 @@ Dashboard SQL Editor**, one file at a time, in order — not via a CLI
 ## (c) Env vars / secrets
 
 - `STRIPE_SECRET_KEY` — **already set** from the existing Stripe setup
-  (see `supabase/functions/README.md`). `list-stripe-products` reads this
-  same secret; no new Stripe secret is needed for it.
+  (see `supabase/functions/README.md`). Course purchases charge directly
+  off each course's `price_cents` via this key — no Stripe Product/Price
+  needs to be pre-created per course.
 - `COURSE_HEALTH_SECRET` — **new**. Set it before scheduling
   `course-health-check` (Supabase Dashboard → Edge Functions → Secrets, or
   CLI):

@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { isCommonPassword } from '../../lib/commonPasswords'
 import { fetchAppSettings, saveAppSetting, SETTING_KEYS } from '../../lib/appSettings'
 import { listCategories, createCategory, renameCategory, reorderCategories, deleteCategory } from '../../lib/courseCategories'
+import { fetchStripeSettings, saveStripeSettings } from '../../lib/paymentSettings'
 
 const MIN_PASSWORD_LENGTH = 12
 
@@ -143,6 +144,141 @@ function PasswordCard() {
           </button>
         </div>
       </form>
+    </div>
+  )
+}
+
+// The secret key is write-only end to end (see migration 0030): this card
+// never has the real value to pre-fill, so the secret-key input always
+// starts blank. fetchStripeSettings() only ever returns a masked hint
+// ("has a key ending in ****1xtr93") via a security-definer RPC that
+// deliberately omits the raw value — leaving the field blank on save keeps
+// whatever secret is already stored, so updating just the publishable key
+// never forces re-pasting the secret. Structurally different from the
+// single-value FIELDS below (two related fields with asymmetric read
+// access), so it's its own self-contained card rather than entries in
+// FIELDS.
+function StripeSettingsCard() {
+  const [publishableKey, setPublishableKey] = useState('')
+  const [secretKey, setSecretKey] = useState('')
+  const [hasSecretKey, setHasSecretKey] = useState(false)
+  const [secretKeyHint, setSecretKeyHint] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchStripeSettings()
+      .then((settings) => {
+        if (cancelled) return
+        setPublishableKey(settings.publishableKey)
+        setHasSecretKey(settings.hasSecretKey)
+        setSecretKeyHint(settings.secretKeyHint)
+      })
+      .catch((err) => setError(err.message || 'Could not load Stripe settings.'))
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function handleSave() {
+    setError('')
+    setSaved(false)
+    setSaving(true)
+    try {
+      await saveStripeSettings({ publishableKey, secretKey })
+      const settings = await fetchStripeSettings()
+      setHasSecretKey(settings.hasSecretKey)
+      setSecretKeyHint(settings.secretKeyHint)
+      setSecretKey('')
+      setSaved(true)
+    } catch (err) {
+      setError(err.message || 'Could not save Stripe settings.')
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div className="rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-5">
+      <label className="mb-1.5 block font-sans text-[13px] font-semibold uppercase tracking-[0.08em] text-cream">
+        Stripe
+      </label>
+      <p className="mb-4 font-serif text-[12.5px] text-cream/50">
+        Membership and course payments are charged directly to these keys. The secret key powers the
+        webhook and checkout too — set{' '}
+        <code className="text-cream/70">STRIPE_WEBHOOK_SECRET</code> and{' '}
+        <code className="text-cream/70">STRIPE_MEMBERSHIP_PRICE_ID</code> separately in Supabase Edge
+        Function Secrets; those aren't managed from here yet.
+      </p>
+
+      {loading ? (
+        <p className="font-serif text-[13.5px] text-cream/50">Loading…</p>
+      ) : (
+        <div className="flex flex-col gap-3.5">
+          <div>
+            <label className="mb-[7px] block font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">
+              Publishable key
+            </label>
+            <input
+              type="text"
+              value={publishableKey}
+              onChange={(e) => setPublishableKey(e.target.value)}
+              placeholder="pk_test_…"
+              autoComplete="off"
+              name="stripe_publishable_key"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[14px] text-cream outline-none"
+            />
+          </div>
+          <div>
+            <label className="mb-[7px] block font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">
+              Secret key
+            </label>
+            {/* type="password" only to visually mask the value while typing — this
+                is not a login field. Plain autoComplete="off" is well-documented to
+                be ignored by Chrome specifically for <input type="password">; "new-
+                password" is the token browsers actually respect for "don't suggest
+                a saved site-login credential here", which is what stops this field
+                (and the plain-text field above it, which Chrome otherwise pairs as
+                a "username") from being silently autofilled with the admin's own
+                account email/password instead of staying blank. */}
+            <input
+              type="password"
+              value={secretKey}
+              onChange={(e) => setSecretKey(e.target.value)}
+              autoComplete="new-password"
+              name="stripe_secret_key"
+              className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[14px] text-cream outline-none"
+            />
+            <p className="mt-1.5 font-serif text-[12px] text-cream/40">
+              {hasSecretKey
+                ? `A secret key is currently set (${secretKeyHint}). It's never shown in full — paste a new one only to replace it.`
+                : 'No secret key set yet. Paste one from your Stripe Dashboard (Developers → API keys).'}
+            </p>
+          </div>
+
+          {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="cursor-pointer rounded-full bg-gold px-5 py-2 font-sans text-[11.5px] font-semibold uppercase tracking-[0.08em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            {saved && <span className="font-serif text-[12.5px] text-[#9BC08A]">Saved</span>}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -397,6 +533,7 @@ export default function AdminSettings() {
             <div className="flex flex-col gap-6">
               {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
               <PasswordCard />
+              <StripeSettingsCard />
               <CourseCategoriesCard />
               {FIELDS.map((field) => (
                 <div

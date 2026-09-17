@@ -18,8 +18,8 @@
 //   - the x-cron-secret header (checked against COURSE_HEALTH_SECRET),
 //     exactly like send-setup-reminders, for the external scheduler; or
 //   - a normal Supabase Auth JWT belonging to a profile with tier='admin'
-//     (checked the same way list-stripe-products.ts checks its own
-//     server-side admin gate), for the on-demand button.
+//     (checked with its own server-side admin gate), for the on-demand
+//     button.
 // Because of that second path, config.toml sets verify_jwt = TRUE here (see
 // the comment there) so the gateway requires *some* valid JWT on every call
 // — the scheduler satisfies that with the project's anon key in the

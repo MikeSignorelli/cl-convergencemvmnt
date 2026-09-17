@@ -31,8 +31,6 @@ export async function createCourse({
   durationLabel,
   featured,
   priceCents,
-  stripePriceId,
-  stripeProductId,
   visibleTiers,
   thumbnailPath,
   videoUrl,
@@ -55,8 +53,6 @@ export async function createCourse({
     duration_label: durationLabel || null,
     featured: !!featured,
     price_cents: priceCents || 0,
-    stripe_price_id: stripePriceId || null,
-    stripe_product_id: stripeProductId || null,
     visible_tiers: visibleTiers,
     thumbnail_path: thumbnailPath || null,
     video_url: videoUrl || null,
@@ -90,8 +86,6 @@ export async function updateCourse(id, fields) {
   if ('durationLabel' in fields) patch.duration_label = fields.durationLabel || null
   if ('featured' in fields) patch.featured = !!fields.featured
   if ('priceCents' in fields) patch.price_cents = fields.priceCents || 0
-  if ('stripePriceId' in fields) patch.stripe_price_id = fields.stripePriceId || null
-  if ('stripeProductId' in fields) patch.stripe_product_id = fields.stripeProductId || null
   if ('visibleTiers' in fields) patch.visible_tiers = fields.visibleTiers
   if ('thumbnailPath' in fields) patch.thumbnail_path = fields.thumbnailPath || null
   if ('slug' in fields) patch.slug = fields.slug || null
@@ -248,8 +242,6 @@ export async function duplicateCourse(id) {
       duration_label: source.duration_label,
       featured: false,
       price_cents: source.price_cents,
-      stripe_price_id: source.stripe_price_id,
-      stripe_product_id: source.stripe_product_id,
       visible_tiers: source.visible_tiers,
       thumbnail_path: source.thumbnail_path,
       video_url: source.video_url,

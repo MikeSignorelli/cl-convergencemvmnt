@@ -4,11 +4,6 @@ verify_jwt = false
 [functions.create-checkout-session]
 verify_jwt = true
 
-# verify_jwt only proves the caller is signed in — the function does its own
-# additional profiles.tier === 'admin' check on top before touching Stripe.
-[functions.list-stripe-products]
-verify_jwt = true
-
 # Called by a scheduler, not a user — gated by the x-cron-secret header instead
 # (see the function). verify_jwt off so the cron/pg_net call needn't carry a JWT.
 [functions.send-setup-reminders]

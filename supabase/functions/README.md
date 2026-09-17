@@ -61,28 +61,9 @@ frontend needs to change.
 
 ## 6. Other Edge Functions in this project
 
-Two more functions live alongside the Stripe ones above, for admin/course
-management. Neither is Stripe-webhook-shaped (no signature to verify), so
-they're documented separately here rather than folded into the numbered
-steps above.
-
-### list-stripe-products
-
-Lists active Stripe Prices (with each Price's Product name) so the admin
-course editor can offer a live dropdown instead of a free-text Stripe Price
-ID field.
-
-- **Deploy:** `supabase functions deploy list-stripe-products`
-- **Secrets:** none new — it reads the existing `STRIPE_SECRET_KEY` from
-  step 2 above. Nothing else to set.
-- **Auth:** called with the signed-in admin's own JWT (`verify_jwt = true`),
-  purely to identify who's asking. It then does its own server-side check
-  that the caller's `profiles.tier` is `'admin'` before ever touching the
-  Stripe API — this is the first Edge Function in the codebase to enforce
-  an admin gate itself rather than leaning on RLS. A non-admin JWT gets a
-  403; an unauthenticated call gets a 401.
-- **Not live-testable** without real Stripe keys, same as
-  `create-checkout-session` / `stripe-webhook` above.
+One more function lives alongside the Stripe ones above, for admin/course
+management. It isn't Stripe-webhook-shaped (no signature to verify), so it's
+documented separately here rather than folded into the numbered steps above.
 
 ### course-health-check
 
@@ -105,8 +86,8 @@ admin course list reads to show a health banner.
     `send-setup-reminders` uses with its own `SETUP_REMINDER_SECRET`; or
   - an admin's browser calls it directly for an on-demand run (the "Check
     Vimeo links now" button on the admin course list), authenticated with
-    that admin's normal Supabase Auth JWT and the same `profiles.tier ===
-    'admin'` check `list-stripe-products` uses above.
+    that admin's normal Supabase Auth JWT and a server-side `profiles.tier
+    === 'admin'` check.
 
   Because of that second caller, `verify_jwt = true` for this function
   (unlike `send-setup-reminders`, which is `false`) — the gateway just

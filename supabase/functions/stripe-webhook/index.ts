@@ -13,14 +13,26 @@
 import Stripe from 'npm:stripe@17'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
-  apiVersion: '2024-06-20',
-})
-
 const adminClient = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 )
+
+// Prefers the key an admin has saved via Settings -> Stripe (payment_settings,
+// migration 0030) over the STRIPE_SECRET_KEY Edge Function secret, so a key
+// pasted into the app takes effect immediately with no redeploy. Falls back
+// to the env secret so a project that hasn't touched that new UI keeps
+// working exactly as before. The column-level REVOKE on
+// payment_settings.secret_key only targets anon/authenticated, so this
+// service-role read is unaffected by it.
+async function getStripeSecretKey(): Promise<string> {
+  const { data } = await adminClient
+    .from('payment_settings')
+    .select('secret_key')
+    .eq('provider', 'stripe')
+    .maybeSingle()
+  return data?.secret_key || Deno.env.get('STRIPE_SECRET_KEY') || ''
+}
 
 // Maps Stripe's own subscription.status values onto our simpler
 // pending/active/failed/cancelled enum (see migration 0011).
@@ -49,6 +61,9 @@ Deno.serve(async (req) => {
   }
 
   const rawBody = await req.text()
+  const stripe = new Stripe(await getStripeSecretKey(), {
+    apiVersion: '2024-06-20',
+  })
   let event: Stripe.Event
   try {
     event = await stripe.webhooks.constructEventAsync(rawBody, signature, webhookSecret)

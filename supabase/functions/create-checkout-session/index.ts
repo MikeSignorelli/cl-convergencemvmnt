@@ -13,13 +13,25 @@
 import Stripe from 'npm:stripe@17'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
-  apiVersion: '2024-06-20',
-})
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// Prefers the key an admin has saved via Settings -> Stripe (payment_settings,
+// migration 0030) over the STRIPE_SECRET_KEY Edge Function secret, so a key
+// pasted into the app takes effect immediately with no redeploy. Falls back
+// to the env secret so a project that hasn't touched that new UI keeps
+// working exactly as before. adminClient is the service-role client -- the
+// column-level REVOKE on payment_settings.secret_key only targets
+// anon/authenticated, so this read is unaffected by it.
+async function getStripeSecretKey(adminClient: ReturnType<typeof createClient>): Promise<string> {
+  const { data } = await adminClient
+    .from('payment_settings')
+    .select('secret_key')
+    .eq('provider', 'stripe')
+    .maybeSingle()
+  return data?.secret_key || Deno.env.get('STRIPE_SECRET_KEY') || ''
 }
 
 Deno.serve(async (req) => {
@@ -42,6 +54,9 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+    const stripe = new Stripe(await getStripeSecretKey(adminClient), {
+      apiVersion: '2024-06-20',
+    })
 
     const { data: userData, error: userError } = await userClient.auth.getUser()
     if (userError || !userData.user) {
@@ -123,7 +138,7 @@ Deno.serve(async (req) => {
 
       const { data: course, error: courseError } = await adminClient
         .from('courses')
-        .select('id, title, price_cents, stripe_price_id')
+        .select('id, title, price_cents')
         .eq('id', courseId)
         .maybeSingle()
       if (courseError || !course) {
@@ -132,18 +147,31 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
-      if (!course.stripe_price_id) {
-        return new Response(JSON.stringify({ error: 'This course has no Stripe price configured yet' }), {
+      if (!course.price_cents || course.price_cents <= 0) {
+        return new Response(JSON.stringify({ error: 'This course does not have a price set yet' }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
 
+      // Charged directly off the course's own price_cents (set by an admin
+      // in the course editor) rather than requiring a Stripe Price object to
+      // be pre-created per course — the same "just set an amount and charge
+      // it" model as WooCommerce or any other simple storefront. Stripe still
+      // needs a product_data name for the line item; it doesn't need to be a
+      // saved Stripe Product.
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
         customer: customerId,
         client_reference_id: user.id,
-        line_items: [{ price: course.stripe_price_id, quantity: 1 }],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: { name: course.title },
+            unit_amount: course.price_cents,
+          },
+          quantity: 1,
+        }],
         success_url: `${siteUrl}/courses/${courseId}?checkout=success`,
         cancel_url: `${siteUrl}/courses/${courseId}?checkout=cancelled`,
         metadata: { supabase_user_id: user.id, type: 'course', course_id: courseId },

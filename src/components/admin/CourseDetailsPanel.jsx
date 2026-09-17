@@ -1,7 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { updateCourse, uploadCourseThumbnail, courseThumbnailUrl, isCourseSlugTaken, fetchCourseLessonsStats } from '../../lib/courses'
 import { listCategories, createCategory } from '../../lib/courseCategories'
-import { listStripeProducts, formatStripeProductLabel } from '../../lib/billing'
 import { slugify } from '../../lib/slug'
 
 const ADD_NEW_CATEGORY = '__add_new__'
@@ -87,13 +86,6 @@ const CourseDetailsPanel = forwardRef(function CourseDetailsPanel({ course, onSa
   const [lessonsStats, setLessonsStats] = useState(null) // null while loading
   const [featured, setFeatured] = useState(!!course.featured)
   const [price, setPrice] = useState(course.price_cents ? (course.price_cents / 100).toString() : '')
-  const [stripePriceId, setStripePriceId] = useState(course.stripe_price_id || '')
-  const [stripeProductId, setStripeProductId] = useState(course.stripe_product_id || '')
-  const [stripeProducts, setStripeProducts] = useState([])
-  const [stripeProductsLoading, setStripeProductsLoading] = useState(true)
-  const [stripeProductsError, setStripeProductsError] = useState('')
-  const [stripeFilter, setStripeFilter] = useState('')
-  const [manualStripeEntry, setManualStripeEntry] = useState(false)
   const [visibleTiers, setVisibleTiers] = useState(course.visible_tiers?.length ? course.visible_tiers : TIERS)
   const [thumbnail, setThumbnail] = useState(null)
   const [error, setError] = useState('')
@@ -130,8 +122,6 @@ const CourseDetailsPanel = forwardRef(function CourseDetailsPanel({ course, onSa
       prerequisites: prerequisites.trim(),
       featured,
       price,
-      stripePriceId: stripePriceId.trim(),
-      stripeProductId: stripeProductId.trim(),
       visibleTiers,
       hasThumbnail: !!thumbnail,
     }
@@ -152,8 +142,6 @@ const CourseDetailsPanel = forwardRef(function CourseDetailsPanel({ course, onSa
     prerequisites: (course.prerequisites || '').trim(),
     featured: !!course.featured,
     price: course.price_cents ? (course.price_cents / 100).toString() : '',
-    stripePriceId: (course.stripe_price_id || '').trim(),
-    stripeProductId: (course.stripe_product_id || '').trim(),
     visibleTiers: course.visible_tiers?.length ? course.visible_tiers : TIERS,
     hasThumbnail: false,
   })
@@ -191,51 +179,6 @@ const CourseDetailsPanel = forwardRef(function CourseDetailsPanel({ course, onSa
     }
   }, [])
 
-  // Fetched once on mount and cached in this component's own state — the
-  // filter box and "Refresh from Stripe" button both operate on that cached
-  // list rather than re-fetching on every keystroke or re-render.
-  useEffect(() => {
-    let cancelled = false
-    setStripeProductsLoading(true)
-    listStripeProducts()
-      .then((list) => { if (!cancelled) setStripeProducts(list) })
-      .catch((err) => { if (!cancelled) setStripeProductsError(err.message || 'Could not load Stripe products.') })
-      .finally(() => { if (!cancelled) setStripeProductsLoading(false) })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  async function handleRefreshStripeProducts() {
-    setStripeProductsLoading(true)
-    setStripeProductsError('')
-    try {
-      const list = await listStripeProducts(true)
-      setStripeProducts(list)
-    } catch (err) {
-      setStripeProductsError(err.message || 'Could not refresh Stripe products.')
-    }
-    setStripeProductsLoading(false)
-  }
-
-  // Picking a dropdown option stores both ids together, straight from the
-  // matched Stripe product — never just the price id alone — so the two
-  // stay consistent. Clearing the dropdown clears both.
-  function handleStripeSelect(e) {
-    const priceId = e.target.value
-    setStripePriceId(priceId)
-    const product = stripeProducts.find((p) => p.priceId === priceId)
-    setStripeProductId(product ? product.productId : '')
-  }
-
-  // A manually-typed price id is unverified against any known product, so
-  // the stored product id is cleared rather than left pointing at whatever
-  // was last selected from the dropdown (or the course's original value).
-  function handleManualStripeChange(e) {
-    setStripePriceId(e.target.value)
-    setStripeProductId('')
-  }
-
   // Auto-derives the slug from the title until the admin edits the slug
   // field directly — the moment they do, handleSlugChange flips slugTouched
   // and this stops overwriting whatever they typed.
@@ -249,12 +192,6 @@ const CourseDetailsPanel = forwardRef(function CourseDetailsPanel({ course, onSa
     setSlugTouched(true)
     setSlug(e.target.value)
   }
-
-  const filteredStripeProducts = stripeProducts.filter(
-    (p) => !stripeFilter.trim() || p.productName.toLowerCase().includes(stripeFilter.trim().toLowerCase())
-  )
-  const selectedStripeProduct = stripeProducts.find((p) => p.priceId === stripePriceId)
-  const selectedInFilteredList = filteredStripeProducts.some((p) => p.priceId === stripePriceId)
 
   function toggleTier(tier) {
     setVisibleTiers((prev) => (prev.includes(tier) ? prev.filter((t) => t !== tier) : [...prev, tier]))
@@ -355,8 +292,6 @@ const CourseDetailsPanel = forwardRef(function CourseDetailsPanel({ course, onSa
         category: categoryName,
         featured,
         priceCents: Math.round(parseFloat(price || '0') * 100) || 0,
-        stripePriceId: stripePriceId.trim(),
-        stripeProductId: stripeProductId.trim(),
         visibleTiers,
         slug: finalSlug,
         shortDescription: shortDescription.trim(),
@@ -571,61 +506,6 @@ const CourseDetailsPanel = forwardRef(function CourseDetailsPanel({ course, onSa
       <div>
         <label className={labelCls}>Standalone price (USD — 0 for membership-only)</label>
         <input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="497.00" className={inputCls} />
-      </div>
-
-      <div>
-        <label className={labelCls}>Stripe price (optional)</label>
-        {!manualStripeEntry ? (
-          <>
-            <div className="mb-2.5 flex flex-wrap items-center gap-2.5">
-              <input
-                type="text"
-                value={stripeFilter}
-                onChange={(e) => setStripeFilter(e.target.value)}
-                placeholder="Search Stripe products…"
-                className={`${inputCls} flex-1`}
-              />
-              <button
-                type="button"
-                onClick={handleRefreshStripeProducts}
-                disabled={stripeProductsLoading}
-                className="cursor-pointer whitespace-nowrap rounded-full border border-cream/[0.16] bg-transparent px-4 py-[13px] font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-cream/70 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {stripeProductsLoading ? 'Refreshing…' : 'Refresh from Stripe'}
-              </button>
-            </div>
-            <select value={stripePriceId} onChange={handleStripeSelect} style={{ colorScheme: 'dark' }} className={inputCls}>
-              <option value="">— No Stripe price —</option>
-              {/* Keeps the current selection visible even when it's been
-                  filtered out of the list below, so searching never appears
-                  to silently deselect the course's existing price. */}
-              {stripePriceId && selectedStripeProduct && !selectedInFilteredList && (
-                <option value={stripePriceId}>{formatStripeProductLabel(selectedStripeProduct)}</option>
-              )}
-              {/* The stored price id isn't in the fetched (active) Stripe
-                  list at all — a different Stripe mode, or the price was
-                  deleted/archived. Shown disabled so the dropdown never
-                  looks confusingly empty for an already-configured course;
-                  saving without changing the selection leaves it untouched. */}
-              {stripePriceId && !selectedStripeProduct && (
-                <option value={stripePriceId} disabled>{`${stripePriceId} (not found in Stripe — kept as-is)`}</option>
-              )}
-              {filteredStripeProducts.map((p) => (
-                <option key={p.priceId} value={p.priceId}>{formatStripeProductLabel(p)}</option>
-              ))}
-            </select>
-            {stripeProductsError && <p className="mt-1.5 font-serif text-[12px] text-[#D8888A]">{stripeProductsError}</p>}
-          </>
-        ) : (
-          <input type="text" value={stripePriceId} onChange={handleManualStripeChange} placeholder="price_…" className={inputCls} />
-        )}
-        <button
-          type="button"
-          onClick={() => setManualStripeEntry((v) => !v)}
-          className="mt-1.5 cursor-pointer border-none bg-transparent p-0 font-serif text-[12px] text-cream/50 underline"
-        >
-          {manualStripeEntry ? 'Choose from Stripe products instead' : 'Enter Stripe Price ID manually instead'}
-        </button>
       </div>
 
       <div>
