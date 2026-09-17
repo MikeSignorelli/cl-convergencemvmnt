@@ -119,6 +119,19 @@ export async function saveLessonProgress({ lessonId, courseId, seconds, duration
   )
 }
 
+// All of the caller's progress rows for one course, keyed by lesson_id — powers
+// the per-episode DONE / in-progress state and the course progress bar. RLS
+// scopes this to the caller's own rows.
+export async function fetchCourseProgress(courseId) {
+  const { data } = await supabase
+    .from('lesson_progress')
+    .select('lesson_id, percent, seconds, completed')
+    .eq('course_id', courseId)
+  const map = {}
+  for (const r of data || []) map[r.lesson_id] = r
+  return map
+}
+
 export async function fetchLessonProgress(lessonId) {
   const { data } = await supabase
     .from('lesson_progress')
