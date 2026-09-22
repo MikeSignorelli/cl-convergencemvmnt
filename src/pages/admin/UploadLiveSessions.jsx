@@ -5,6 +5,11 @@ import { useAuth } from '../../lib/AuthContext'
 import { createLiveSession, deleteLiveSession, listLiveSessions } from '../../lib/liveSessions'
 
 const TIERS = ['disciple', 'leader', 'pastor']
+const DEFAULT_DURATION_MINUTES = 60
+// Re-checks "has this session started yet?" every 30s so a session flips
+// from "starts at ..." to "Join now" on its own, with no page refresh --
+// the whole point of "no manual admin action to open it."
+const NOW_TICK_MS = 30000
 
 export default function UploadLiveSessions() {
   const { isAdmin } = useAuth()
@@ -16,9 +21,15 @@ export default function UploadLiveSessions() {
   const [description, setDescription] = useState('')
   const [visibleTiers, setVisibleTiers] = useState(TIERS)
   const [scheduledAt, setScheduledAt] = useState('')
-  const [joinUrl, setJoinUrl] = useState('')
+  const [durationMinutes, setDurationMinutes] = useState(String(DEFAULT_DURATION_MINUTES))
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), NOW_TICK_MS)
+    return () => clearInterval(id)
+  }, [])
 
   async function refresh() {
     setLoading(true)
@@ -52,10 +63,6 @@ export default function UploadLiveSessions() {
       setError('Choose a date and time.')
       return
     }
-    if (!joinUrl.trim()) {
-      setError('Add a join link.')
-      return
-    }
     if (visibleTiers.length === 0) {
       setError('Select at least one tier.')
       return
@@ -68,14 +75,14 @@ export default function UploadLiveSessions() {
         description: description.trim(),
         visibleTiers,
         scheduledAt: new Date(scheduledAt).toISOString(),
-        joinUrl: joinUrl.trim(),
+        durationMinutes: parseInt(durationMinutes, 10) || DEFAULT_DURATION_MINUTES,
       })
 
       setTitle('')
       setDescription('')
       setVisibleTiers(TIERS)
       setScheduledAt('')
-      setJoinUrl('')
+      setDurationMinutes(String(DEFAULT_DURATION_MINUTES))
       setShowForm(false)
       await refresh()
     } catch (err) {
@@ -182,17 +189,21 @@ export default function UploadLiveSessions() {
               </div>
               <div>
                 <label className="mb-[7px] block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/50">
-                  Join link
+                  Duration (minutes)
                 </label>
                 <input
-                  type="url"
-                  value={joinUrl}
-                  onChange={(e) => setJoinUrl(e.target.value)}
-                  placeholder="https://zoom.us/…"
+                  type="number"
+                  min="15"
+                  step="15"
+                  value={durationMinutes}
+                  onChange={(e) => setDurationMinutes(e.target.value)}
                   className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[15px] text-cream outline-none"
                 />
               </div>
             </div>
+            <p className="-mt-1 font-serif text-[12px] text-cream/40">
+              The Zoom meeting and join link are created automatically — nothing to paste in.
+            </p>
 
             {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
 
@@ -201,7 +212,7 @@ export default function UploadLiveSessions() {
               disabled={submitting}
               className="w-fit cursor-pointer rounded-full border-none bg-gold px-8 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? 'Saving…' : 'Add session'}
+              {submitting ? 'Creating the Zoom meeting…' : 'Add session'}
             </button>
           </form>
           )}
@@ -213,43 +224,64 @@ export default function UploadLiveSessions() {
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Title</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Visible to</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">When</th>
+                  <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50" />
                   {isAdmin && <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50" />}
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={isAdmin ? 4 : 3} className="px-5 py-6 text-center font-serif text-cream/50">Loading…</td>
+                    <td colSpan={isAdmin ? 5 : 4} className="px-5 py-6 text-center font-serif text-cream/50">Loading…</td>
                   </tr>
                 )}
                 {!loading && visible.length === 0 && (
                   <tr>
-                    <td colSpan={isAdmin ? 4 : 3} className="px-5 py-6 text-center font-serif text-cream/50">
+                    <td colSpan={isAdmin ? 5 : 4} className="px-5 py-6 text-center font-serif text-cream/50">
                       {sessions.length === 0 ? 'No live sessions yet.' : `No sessions match “${query}”.`}
                     </td>
                   </tr>
                 )}
                 {!loading &&
-                  visible.map((s) => (
-                    <tr key={s.id} className="border-b border-cream/[0.06] last:border-b-0">
-                      <td className="px-5 py-3.5 font-sans text-sm font-medium">{s.title}</td>
-                      <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{s.visible_tiers.join(', ')}</td>
-                      <td className="px-5 py-3.5 font-serif text-sm text-cream/60">
-                        {new Date(s.scheduled_at).toLocaleString()}
-                      </td>
-                      {isAdmin && (
-                      <td className="px-5 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(s)}
-                          className="cursor-pointer border-none bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-[#D8888A]"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                      )}
-                    </tr>
-                  ))}
+                  visible.map((s) => {
+                    const scheduled = new Date(s.scheduled_at)
+                    const isLive = now >= scheduled
+                    return (
+                      <tr key={s.id} className="border-b border-cream/[0.06] last:border-b-0">
+                        <td className="px-5 py-3.5 font-sans text-sm font-medium">{s.title}</td>
+                        <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{s.visible_tiers.join(', ')}</td>
+                        <td className="px-5 py-3.5 font-serif text-sm text-cream/60">
+                          {isLive ? (
+                            <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9BC08A]">Live now</span>
+                          ) : (
+                            `Starts ${scheduled.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {isLive && s.join_url && (
+                            <a
+                              href={s.join_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="cursor-pointer whitespace-nowrap rounded-full bg-gold px-4 py-[7px] font-sans text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink no-underline"
+                            >
+                              Join now
+                            </a>
+                          )}
+                        </td>
+                        {isAdmin && (
+                        <td className="px-5 py-3.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(s)}
+                            className="cursor-pointer border-none bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-[#D8888A]"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                        )}
+                      </tr>
+                    )
+                  })}
               </tbody>
             </table>
           </div>

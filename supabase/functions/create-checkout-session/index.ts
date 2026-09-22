@@ -22,9 +22,9 @@ const corsHeaders = {
 // migration 0030) over the STRIPE_SECRET_KEY Edge Function secret, so a key
 // pasted into the app takes effect immediately with no redeploy. Falls back
 // to the env secret so a project that hasn't touched that new UI keeps
-// working exactly as before. adminClient is the service-role client -- the
-// column-level REVOKE on payment_settings.secret_key only targets
-// anon/authenticated, so this read is unaffected by it.
+// working exactly as before. adminClient is the service-role client --
+// payment_settings' RLS only lets anon/authenticated read a row when
+// is_caller_admin() (migration 0030/0031), so this read is unaffected by it.
 async function getStripeSecretKey(adminClient: ReturnType<typeof createClient>): Promise<string> {
   const { data } = await adminClient
     .from('payment_settings')

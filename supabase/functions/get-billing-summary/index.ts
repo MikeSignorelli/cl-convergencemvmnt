@@ -31,9 +31,9 @@ const PAST_INVOICES_LIMIT = 24
 // migration 0030) over the STRIPE_SECRET_KEY Edge Function secret, so a key
 // pasted into the app takes effect immediately with no redeploy. Falls back
 // to the env secret so a project that hasn't touched that new UI keeps
-// working exactly as before. adminClient is the service-role client -- the
-// column-level REVOKE on payment_settings.secret_key only targets
-// anon/authenticated, so this read is unaffected by it.
+// working exactly as before. adminClient is the service-role client --
+// payment_settings' RLS only lets anon/authenticated read a row when
+// is_caller_admin() (migration 0030/0031), so this read is unaffected by it.
 async function getStripeSecretKey(adminClient: ReturnType<typeof createClient>): Promise<string> {
   const { data } = await adminClient
     .from('payment_settings')
@@ -99,10 +99,20 @@ Deno.serve(async (req) => {
     const customerId = profile.stripe_customer_id
 
     // --- Membership: live subscription state + upcoming invoice ---
+    // Wrapped defensively: a Stripe id created under a since-rotated key
+    // (Settings -> Stripe, migration 0030) 404s here, and that used to 500
+    // the whole endpoint. A lookup failure now just falls back to the
+    // DB-only status instead of breaking the page.
     let membership = null
+    let liveSubscription = null
     if (profile.stripe_subscription_id) {
-      const subscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id)
-
+      try {
+        liveSubscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id)
+      } catch (subErr) {
+        console.error('get-billing-summary: could not retrieve subscription', subErr)
+      }
+    }
+    if (liveSubscription) {
       let upcomingAmountCents = null
       let upcomingCurrency = null
       let upcomingDate = null
@@ -127,9 +137,9 @@ Deno.serve(async (req) => {
 
       membership = {
         status: profile.subscription_status,
-        cancelAtPeriodEnd: subscription.cancel_at_period_end,
-        currentPeriodEnd: subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000).toISOString()
+        cancelAtPeriodEnd: liveSubscription.cancel_at_period_end,
+        currentPeriodEnd: liveSubscription.current_period_end
+          ? new Date(liveSubscription.current_period_end * 1000).toISOString()
           : null,
         upcomingAmountCents,
         upcomingCurrency,
@@ -146,17 +156,28 @@ Deno.serve(async (req) => {
       }
     }
 
-    // --- Past subscription invoices ---
-    const invoices = await stripe.invoices.list({ customer: customerId, limit: PAST_INVOICES_LIMIT })
-    const invoiceTransactions = invoices.data.map((invoice) => ({
-      id: invoice.id,
+    // --- Past subscription invoices — read from billing_transactions (0032)
+    // instead of a live stripe.invoices.list() call: it's written by
+    // stripe-webhook off real events, so it never depends on the currently
+    // configured key still matching the account this customer was created
+    // under, and it's the same source the admin Orders page reads. ---
+    const { data: invoiceRows, error: invoiceError } = await adminClient
+      .from('billing_transactions')
+      .select('id, amount_cents, currency, status, description, receipt_url, occurred_at')
+      .eq('user_id', user.id)
+      .order('occurred_at', { ascending: false })
+      .limit(PAST_INVOICES_LIMIT)
+    if (invoiceError) throw invoiceError
+
+    const invoiceTransactions = (invoiceRows || []).map((row) => ({
+      id: row.id,
       type: 'membership',
-      description: 'Monthly membership',
-      date: new Date((invoice.created ?? 0) * 1000).toISOString(),
-      amountCents: invoice.amount_paid ?? invoice.amount_due ?? 0,
-      currency: invoice.currency,
-      status: invoice.status, // draft | open | paid | uncollectible | void
-      receiptUrl: invoice.hosted_invoice_url ?? null,
+      description: row.description || 'Monthly membership',
+      date: row.occurred_at,
+      amountCents: row.amount_cents,
+      currency: row.currency,
+      status: row.status, // paid | failed
+      receiptUrl: row.receipt_url,
     }))
 
     // --- One-time a la carte course purchases (this user's rows only) ---
@@ -177,9 +198,13 @@ Deno.serve(async (req) => {
       receiptUrl: null,
     }))
 
-    const transactions = [...invoiceTransactions, ...courseTransactions].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    )
+    // Course purchases surface above membership charges (both newest-first
+    // within their own group) -- a member's à-la-carte purchases are the
+    // thing they're most likely checking on.
+    const transactions = [...courseTransactions, ...invoiceTransactions].sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'course' ? -1 : 1
+      return new Date(b.date).getTime() - new Date(a.date).getTime()
+    })
 
     return new Response(
       JSON.stringify({ hasStripeCustomer: true, membership, transactions }),

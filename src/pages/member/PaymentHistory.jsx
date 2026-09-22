@@ -11,18 +11,14 @@ const GREEN = { bg: 'rgba(155,192,138,0.16)', text: '#9BC08A' }
 const NEUTRAL = { bg: 'rgba(240,238,229,0.1)', text: 'rgba(240,238,229,0.6)' }
 const RED = { bg: 'rgba(216,136,138,0.16)', text: '#D8888A' }
 
-// Covers both Stripe invoice statuses (paid/open/draft/void/uncollectible)
-// and course_purchases statuses (completed/pending/failed) — the unified
-// transactions list from get-billing-summary carries both.
+// Covers billing_transactions statuses (paid/failed) and course_purchases
+// statuses (completed/pending/failed) — the unified transactions list from
+// get-billing-summary carries both.
 const STATUS_STYLES = {
   paid: { label: 'Paid', ...GREEN },
   completed: { label: 'Paid', ...GREEN },
-  open: { label: 'Open', ...NEUTRAL },
   pending: { label: 'Pending', ...NEUTRAL },
-  draft: { label: 'Draft', ...NEUTRAL },
-  void: { label: 'Void', ...NEUTRAL },
   failed: { label: 'Failed', ...RED },
-  uncollectible: { label: 'Failed', ...RED },
 }
 
 function statusConfig(status) {

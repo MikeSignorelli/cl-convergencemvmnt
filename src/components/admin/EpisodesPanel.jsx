@@ -126,6 +126,8 @@ export default function EpisodesPanel({ courseId, weeks }) {
   const [vimeoError, setVimeoError] = useState('')
 
   const [bulkText, setBulkText] = useState('')
+  const [bulkParsing, setBulkParsing] = useState(false)
+  const [bulkRows, setBulkRows] = useState(null) // null = still on the paste step; array once parsed
   const [bulkSubmitting, setBulkSubmitting] = useState(false)
   const [bulkResults, setBulkResults] = useState(null)
 
@@ -316,6 +318,7 @@ export default function EpisodesPanel({ courseId, weeks }) {
   function startBulk(weekNumber) {
     setFormTarget({ weekNumber, mode: 'bulk' })
     setBulkText('')
+    setBulkRows(null)
     setBulkResults(null)
     setFormError('')
   }
@@ -428,10 +431,58 @@ export default function EpisodesPanel({ courseId, weeks }) {
   }
 
   // ---- Bulk "paste multiple Vimeo links" (task #3) --------------------------
-  async function handleBulkSubmit(e) {
+  // Two steps: paste links -> parse (fetch each line's Vimeo oEmbed title/
+  // thumbnail/duration guess) -> review/edit every row (title, description,
+  // release date, optional thumbnail override) -> create. This is what lets
+  // bulk-add capture the same per-episode metadata the single Add form
+  // already does, instead of only ever saving a bare link with an
+  // auto-derived title.
+  async function handleBulkParse(e) {
     e.preventDefault()
     const lines = bulkText.split('\n').map((l) => l.trim()).filter(Boolean)
     if (lines.length === 0) return setFormError('Paste at least one Vimeo link.')
+    setFormError('')
+    setBulkParsing(true)
+    const rows = await Promise.all(
+      lines.map(async (line, i) => {
+        const vimeoId = extractVimeoId(line)
+        if (!vimeoId) {
+          return { line, vimeoId: null, invalid: true, invalidReason: 'Not a recognizable Vimeo link.' }
+        }
+        const built = await buildEpisodeFromLink({ videoUrl: line, title: '', fallbackTitle: `Episode ${i + 1}` })
+        return {
+          line,
+          vimeoId: built.vimeoId,
+          title: built.title,
+          description: '',
+          releaseAt: '',
+          thumbnailFile: null,
+          vimeoThumbnailUrl: built.thumbnailUrl,
+          durationLabel: built.durationLabel,
+          durationSeconds: built.durationSeconds,
+          durationSource: built.durationSource,
+          oembedError: built.oembedError,
+          invalid: false,
+        }
+      })
+    )
+    setBulkRows(rows)
+    setBulkParsing(false)
+  }
+
+  function updateBulkRow(index, patch) {
+    setBulkRows((rows) => rows.map((r, i) => (i === index ? { ...r, ...patch } : r)))
+  }
+  function removeBulkRow(index) {
+    setBulkRows((rows) => rows.filter((_, i) => i !== index))
+  }
+  function backToBulkPaste() {
+    setBulkRows(null)
+  }
+
+  async function handleBulkCreate() {
+    const rows = bulkRows.filter((r) => !r.invalid)
+    if (rows.length === 0) return setFormError('No valid episodes to add.')
     setFormError('')
     setBulkSubmitting(true)
     const weekKey = formTarget.weekNumber
@@ -439,34 +490,36 @@ export default function EpisodesPanel({ courseId, weeks }) {
     const existingCount = listForKey(weekKey).length
     const results = []
     let created = 0
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-      const vimeoId = extractVimeoId(line)
-      if (!vimeoId) {
-        results.push({ line, status: 'error', message: 'Not a recognizable Vimeo link.' })
-        continue
-      }
+    for (const row of rows) {
       try {
-        const built = await buildEpisodeFromLink({ videoUrl: line, title: '', fallbackTitle: `Episode ${i + 1}` })
+        let thumbnailPath
+        if (row.thumbnailFile) {
+          const uploaded = await uploadCourseThumbnail(row.thumbnailFile)
+          thumbnailPath = uploaded.path
+        }
         await createLesson({
           courseId,
-          title: built.title,
-          videoUrl: line,
+          title: row.title.trim() || 'Untitled episode',
+          description: row.description.trim(),
+          videoUrl: row.line,
           weekNumber,
-          vimeoId: built.vimeoId,
-          durationLabel: built.durationLabel,
-          durationSeconds: built.durationSeconds,
-          durationSource: built.durationSource,
-          thumbnailUrl: built.thumbnailUrl,
+          vimeoId: row.vimeoId,
+          durationLabel: row.durationLabel,
+          durationSeconds: row.durationSeconds,
+          durationSource: row.durationSource,
+          thumbnailPath,
+          thumbnailUrl: row.vimeoThumbnailUrl,
+          releaseAt: row.releaseAt ? new Date(row.releaseAt).toISOString() : null,
           position: weekSlot(weekNumber) * POSITION_WEEK_GAP + existingCount + created,
         })
         created += 1
-        results.push({ line, status: 'success', title: built.title, warning: built.oembedError })
+        results.push({ line: row.line, status: 'success', title: row.title, warning: row.oembedError })
       } catch (err) {
-        results.push({ line, status: 'error', message: err.message || 'Could not save this episode.' })
+        results.push({ line: row.line, status: 'error', message: err.message || 'Could not save this episode.' })
       }
     }
     setBulkResults(results)
+    setBulkRows(null)
     setBulkSubmitting(false)
     setBulkText('')
     await refresh()
@@ -508,7 +561,7 @@ export default function EpisodesPanel({ courseId, weeks }) {
           durationLabel: built.durationLabel,
           durationSeconds: built.durationSeconds,
           durationSource: built.durationSource,
-          thumbnailUrl: built.thumbnailUrl,
+          thumbnailUrl: row.thumbnail_url?.trim() || built.thumbnailUrl,
           position: weekSlot(weekNumber) * POSITION_WEEK_GAP + counters[weekNumber],
         })
         counters[weekNumber] += 1
@@ -536,40 +589,102 @@ export default function EpisodesPanel({ courseId, weeks }) {
   // section is currently the formTarget --------------------------------------
   function renderForm() {
     if (formTarget.mode === 'bulk') {
+      if (!bulkRows) {
+        return (
+          <form onSubmit={handleBulkParse} className="mb-6 flex flex-col gap-4 rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-6">
+            <div>
+              <label className={labelCls}>Paste one Vimeo link per line</label>
+              <textarea
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                rows={6}
+                placeholder={'https://vimeo.com/111111111\nhttps://vimeo.com/222222222'}
+                className={`${inputCls} resize-y font-sans`}
+              />
+              <p className="mt-1.5 font-serif text-[12px] text-cream/40">
+                Each line becomes its own episode in this week. Next you'll get a chance to set each one's title, description, release date, and thumbnail before anything is saved.
+              </p>
+            </div>
+            {formError && <p className="font-serif text-[13px] text-[#D8888A]">{formError}</p>}
+            <div className="flex items-center gap-3">
+              <button type="submit" disabled={bulkParsing} className="w-fit cursor-pointer rounded-full border-none bg-gold px-8 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60">
+                {bulkParsing ? 'Looking up videos…' : 'Continue'}
+              </button>
+              <button type="button" onClick={closeForm} className="cursor-pointer rounded-full border border-cream/20 bg-transparent px-6 py-3 font-sans text-[12px] font-semibold uppercase tracking-[0.12em] text-cream/70">
+                Cancel
+              </button>
+            </div>
+            {bulkResults && (
+              <div className="flex flex-col gap-1.5 border-t border-cream/[0.09] pt-4">
+                {bulkResults.map((r, i) => (
+                  <p key={i} className="font-serif text-[12.5px]" style={{ color: r.status === 'success' ? '#9BC08A' : '#D8888A' }}>
+                    {r.status === 'success' ? '✓' : '✗'} {r.line} — {r.status === 'success' ? `Added as "${r.title}"${r.warning ? ' (Vimeo lookup failed, saved manually)' : ''}` : r.message}
+                  </p>
+                ))}
+              </div>
+            )}
+          </form>
+        )
+      }
+
       return (
-        <form onSubmit={handleBulkSubmit} className="mb-6 flex flex-col gap-4 rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-6">
-          <div>
-            <label className={labelCls}>Paste one Vimeo link per line</label>
-            <textarea
-              value={bulkText}
-              onChange={(e) => setBulkText(e.target.value)}
-              rows={6}
-              placeholder={'https://vimeo.com/111111111\nhttps://vimeo.com/222222222'}
-              className={`${inputCls} resize-y font-sans`}
-            />
-            <p className="mt-1.5 font-serif text-[12px] text-cream/40">
-              Each line becomes its own episode in this week, using the video's Vimeo title (falling back to "Episode N" if that lookup fails).
-            </p>
-          </div>
+        <div className="mb-6 flex flex-col gap-4 rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-6">
+          <p className="font-serif text-[12.5px] text-cream/50">
+            Review and edit each episode below, then add them all at once.
+          </p>
           {formError && <p className="font-serif text-[13px] text-[#D8888A]">{formError}</p>}
+          <div className="flex flex-col gap-4">
+            {bulkRows.map((row, i) => (
+              <div key={row.line + i} className="rounded-[10px] border border-cream/[0.1] bg-cream/[0.03] p-4">
+                {row.invalid ? (
+                  <p className="font-serif text-[13px] text-[#D8888A]">{row.line} — {row.invalidReason}</p>
+                ) : (
+                  <>
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <p className="truncate font-serif text-[12px] text-cream/40">{row.line}</p>
+                      <button type="button" onClick={() => removeBulkRow(i)} className="shrink-0 cursor-pointer border-none bg-transparent font-sans text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#D8888A]">
+                        Remove
+                      </button>
+                    </div>
+                    {row.oembedError && (
+                      <p className="mb-3 font-serif text-[12px] text-[#E9CF9C]">Couldn't fetch video info from Vimeo — you can still fill this in manually.</p>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelCls}>Episode name</label>
+                        <input type="text" value={row.title} onChange={(e) => updateBulkRow(i, { title: e.target.value })} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Release date (optional)</label>
+                        <input type="datetime-local" value={row.releaseAt} onChange={(e) => updateBulkRow(i, { releaseAt: e.target.value })} style={{ colorScheme: 'dark' }} className={inputCls} />
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <label className={labelCls}>Description (optional)</label>
+                      <input type="text" value={row.description} onChange={(e) => updateBulkRow(i, { description: e.target.value })} className={inputCls} />
+                    </div>
+                    <div className="mt-3">
+                      <label className={labelCls}>Thumbnail (optional)</label>
+                      <input type="file" accept="image/*" onChange={(e) => updateBulkRow(i, { thumbnailFile: e.target.files?.[0] || null })} className="w-full pt-2 font-serif text-[13px] text-cream/70" />
+                      {!row.thumbnailFile && row.vimeoThumbnailUrl && <p className="mt-1 font-serif text-[11px] text-cream/40">Using Vimeo's thumbnail</p>}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
           <div className="flex items-center gap-3">
-            <button type="submit" disabled={bulkSubmitting} className="w-fit cursor-pointer rounded-full border-none bg-gold px-8 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60">
-              {bulkSubmitting ? 'Adding…' : 'Add episodes'}
+            <button type="button" onClick={handleBulkCreate} disabled={bulkSubmitting} className="w-fit cursor-pointer rounded-full border-none bg-gold px-8 py-3 font-sans text-[13px] font-semibold uppercase tracking-[0.12em] text-ink disabled:cursor-not-allowed disabled:opacity-60">
+              {bulkSubmitting ? 'Adding…' : `Add ${bulkRows.filter((r) => !r.invalid).length} episode${bulkRows.filter((r) => !r.invalid).length === 1 ? '' : 's'}`}
             </button>
-            <button type="button" onClick={closeForm} className="cursor-pointer rounded-full border border-cream/20 bg-transparent px-6 py-3 font-sans text-[12px] font-semibold uppercase tracking-[0.12em] text-cream/70">
+            <button type="button" onClick={backToBulkPaste} disabled={bulkSubmitting} className="cursor-pointer rounded-full border border-cream/20 bg-transparent px-6 py-3 font-sans text-[12px] font-semibold uppercase tracking-[0.12em] text-cream/70">
+              Back
+            </button>
+            <button type="button" onClick={closeForm} disabled={bulkSubmitting} className="cursor-pointer border-none bg-transparent font-sans text-[12px] font-semibold uppercase tracking-[0.12em] text-cream/50">
               Cancel
             </button>
           </div>
-          {bulkResults && (
-            <div className="flex flex-col gap-1.5 border-t border-cream/[0.09] pt-4">
-              {bulkResults.map((r, i) => (
-                <p key={i} className="font-serif text-[12.5px]" style={{ color: r.status === 'success' ? '#9BC08A' : '#D8888A' }}>
-                  {r.status === 'success' ? '✓' : '✗'} {r.line} — {r.status === 'success' ? `Added as "${r.title}"${r.warning ? ' (Vimeo lookup failed, saved manually)' : ''}` : r.message}
-                </p>
-              ))}
-            </div>
-          )}
-        </form>
+        </div>
       )
     }
 
@@ -744,7 +859,7 @@ export default function EpisodesPanel({ courseId, weeks }) {
           <div>
             <label className={labelCls}>CSV file</label>
             <input ref={csvFileInputRef} type="file" accept=".csv,text/csv" onChange={handleCsvFileChange} className="w-full font-serif text-[13.5px] text-cream/70" />
-            <p className="mt-1.5 font-serif text-[12px] text-cream/40">Columns: week, title, video_link, description (optional), release_date (optional).</p>
+            <p className="mt-1.5 font-serif text-[12px] text-cream/40">Columns: week, title, video_link, description (optional), release_date (optional), thumbnail_url (optional — a direct image link; leave blank to use Vimeo's own thumbnail).</p>
           </div>
           {csvError && <p className="font-serif text-[13px] text-[#D8888A]">{csvError}</p>}
 

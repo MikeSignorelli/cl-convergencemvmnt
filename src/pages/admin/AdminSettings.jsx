@@ -7,6 +7,7 @@ import { isCommonPassword } from '../../lib/commonPasswords'
 import { fetchAppSettings, saveAppSetting, SETTING_KEYS } from '../../lib/appSettings'
 import { listCategories, createCategory, renameCategory, reorderCategories, deleteCategory } from '../../lib/courseCategories'
 import { fetchStripeSettings, saveStripeSettings } from '../../lib/paymentSettings'
+import { fetchZoomSettings, saveZoomSettings } from '../../lib/zoomSettings'
 
 const MIN_PASSWORD_LENGTH = 12
 
@@ -283,6 +284,146 @@ function StripeSettingsCard() {
   )
 }
 
+// Zoom Server-to-Server OAuth credentials for live sessions (migration
+// 0036) -- same write-only-secret pattern as StripeSettingsCard above:
+// client_secret is never sent back to the browser, only a masked hint.
+function ZoomSettingsCard() {
+  const [accountId, setAccountId] = useState('')
+  const [clientId, setClientId] = useState('')
+  const [clientSecret, setClientSecret] = useState('')
+  const [hasClientSecret, setHasClientSecret] = useState(false)
+  const [clientSecretHint, setClientSecretHint] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchZoomSettings()
+      .then((settings) => {
+        if (cancelled) return
+        setAccountId(settings.accountId)
+        setClientId(settings.clientId)
+        setHasClientSecret(settings.hasClientSecret)
+        setClientSecretHint(settings.clientSecretHint)
+      })
+      .catch((err) => setError(err.message || 'Could not load Zoom settings.'))
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function handleSave() {
+    setError('')
+    setSaved(false)
+    setSaving(true)
+    try {
+      await saveZoomSettings({ accountId, clientId, clientSecret })
+      const settings = await fetchZoomSettings()
+      setHasClientSecret(settings.hasClientSecret)
+      setClientSecretHint(settings.clientSecretHint)
+      setClientSecret('')
+      setSaved(true)
+    } catch (err) {
+      setError(err.message || 'Could not save Zoom settings.')
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div className="rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-5">
+      <label className="mb-1.5 block font-sans text-[13px] font-semibold uppercase tracking-[0.08em] text-cream">
+        Zoom
+      </label>
+      <p className="mb-4 font-serif text-[12.5px] text-cream/50">
+        Live sessions create real Zoom meetings automatically via a Server-to-Server OAuth app —
+        create one in the Zoom Marketplace (Build App → Server-to-Server OAuth) and paste its three
+        values here. Members can join right at the scheduled time with no manual step on your end.
+      </p>
+
+      {loading ? (
+        <p className="font-serif text-[13.5px] text-cream/50">Loading…</p>
+      ) : (
+        <div className="flex flex-col gap-3.5">
+          <div>
+            <label className="mb-[7px] block font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">
+              Account ID
+            </label>
+            <input
+              type="text"
+              value={accountId}
+              onChange={(e) => setAccountId(e.target.value)}
+              placeholder="Zoom Account ID"
+              autoComplete="off"
+              name="zoom_account_id"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[14px] text-cream outline-none"
+            />
+          </div>
+          <div>
+            <label className="mb-[7px] block font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">
+              Client ID
+            </label>
+            <input
+              type="text"
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              placeholder="Client ID"
+              autoComplete="off"
+              name="zoom_client_id"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[14px] text-cream outline-none"
+            />
+          </div>
+          <div>
+            <label className="mb-[7px] block font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">
+              Client Secret
+            </label>
+            {/* type="password" only to visually mask the value while typing -- see
+                StripeSettingsCard's identical note on autoComplete="new-password"
+                being what actually stops Chrome autofilling a saved login here. */}
+            <input
+              type="password"
+              value={clientSecret}
+              onChange={(e) => setClientSecret(e.target.value)}
+              autoComplete="new-password"
+              name="zoom_client_secret"
+              className="w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[14px] text-cream outline-none"
+            />
+            <p className="mt-1.5 font-serif text-[12px] text-cream/40">
+              {hasClientSecret
+                ? `A client secret is currently set (${clientSecretHint}). It's never shown in full — paste a new one only to replace it.`
+                : 'No client secret set yet. Paste it from your Zoom Server-to-Server OAuth app.'}
+            </p>
+          </div>
+
+          {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="cursor-pointer rounded-full bg-gold px-5 py-2 font-sans text-[11.5px] font-semibold uppercase tracking-[0.08em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            {saved && <span className="font-serif text-[12.5px] text-[#9BC08A]">Saved</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Structurally different from the single-value FIELDS below (a repeatable,
 // reorderable list rather than one key/value pair), so it's its own
 // self-contained card rather than an entry in FIELDS.
@@ -478,7 +619,35 @@ function CourseCategoriesCard() {
   )
 }
 
+const TABS = [
+  { key: 'account', label: 'Account' },
+  { key: 'payments', label: 'Payments' },
+  { key: 'courses', label: 'Courses' },
+  { key: 'live-sessions', label: 'Live sessions' },
+  { key: 'content', label: 'Site content' },
+]
+
+function TabBar({ active, onChange }) {
+  return (
+    <div className="mb-8 flex flex-wrap gap-1 border-b border-cream/[0.09]">
+      {TABS.map((t) => (
+        <button
+          key={t.key}
+          type="button"
+          onClick={() => onChange(t.key)}
+          className={`-mb-px cursor-pointer border-b-2 px-4 py-3 font-sans text-[12.5px] font-semibold uppercase tracking-[0.1em] ${
+            active === t.key ? 'border-gold text-white' : 'border-transparent text-cream/50 hover:text-cream/80'
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function AdminSettings() {
+  const [activeTab, setActiveTab] = useState('account')
   const [values, setValues] = useState({})
   const [loading, setLoading] = useState(true)
   const [savingKey, setSavingKey] = useState('')
@@ -523,58 +692,83 @@ export default function AdminSettings() {
           <h1 className="mb-1 font-sans text-[28px] font-bold uppercase leading-[1.05] text-white">
             Settings
           </h1>
-          <p className="mb-8 font-serif text-[15px] text-cream/60">
-            Your account, and system-wide text shown to members.
+          <p className="mb-6 font-serif text-[15px] text-cream/60">
+            Your account, payments, courses, and system-wide text shown to members.
           </p>
 
-          {loading ? (
-            <p className="font-serif text-cream/50">Loading…</p>
-          ) : (
+          <TabBar active={activeTab} onChange={setActiveTab} />
+
+          {activeTab === 'account' && (
             <div className="flex flex-col gap-6">
-              {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
               <PasswordCard />
-              <StripeSettingsCard />
-              <CourseCategoriesCard />
-              {FIELDS.map((field) => (
-                <div
-                  key={field.key}
-                  className="rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-5"
-                >
-                  <label className="mb-1.5 block font-sans text-[13px] font-semibold uppercase tracking-[0.08em] text-cream">
-                    {field.label}
-                  </label>
-                  <p className="mb-3 font-serif text-[12.5px] text-cream/50">{field.hint}</p>
-                  {field.multiline ? (
-                    <textarea
-                      value={values[field.key] || ''}
-                      onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
-                      rows={3}
-                      className="mb-3 w-full resize-none rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[14px] text-cream outline-none"
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={values[field.key] || ''}
-                      onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
-                      className="mb-3 w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[14px] text-cream outline-none"
-                    />
-                  )}
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleSave(field.key)}
-                      disabled={savingKey === field.key}
-                      className="cursor-pointer rounded-full bg-gold px-5 py-2 font-sans text-[11.5px] font-semibold uppercase tracking-[0.08em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {savingKey === field.key ? 'Saving…' : 'Save'}
-                    </button>
-                    {savedKey === field.key && (
-                      <span className="font-serif text-[12.5px] text-[#9BC08A]">Saved</span>
-                    )}
-                  </div>
-                </div>
-              ))}
             </div>
+          )}
+
+          {activeTab === 'payments' && (
+            <div className="flex flex-col gap-6">
+              <StripeSettingsCard />
+            </div>
+          )}
+
+          {activeTab === 'courses' && (
+            <div className="flex flex-col gap-6">
+              <CourseCategoriesCard />
+            </div>
+          )}
+
+          {activeTab === 'live-sessions' && (
+            <div className="flex flex-col gap-6">
+              <ZoomSettingsCard />
+            </div>
+          )}
+
+          {activeTab === 'content' && (
+            loading ? (
+              <p className="font-serif text-cream/50">Loading…</p>
+            ) : (
+              <div className="flex flex-col gap-6">
+                {error && <p className="font-serif text-[13px] text-[#D8888A]">{error}</p>}
+                {FIELDS.map((field) => (
+                  <div
+                    key={field.key}
+                    className="rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-5"
+                  >
+                    <label className="mb-1.5 block font-sans text-[13px] font-semibold uppercase tracking-[0.08em] text-cream">
+                      {field.label}
+                    </label>
+                    <p className="mb-3 font-serif text-[12.5px] text-cream/50">{field.hint}</p>
+                    {field.multiline ? (
+                      <textarea
+                        value={values[field.key] || ''}
+                        onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
+                        rows={3}
+                        className="mb-3 w-full resize-none rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[14px] text-cream outline-none"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={values[field.key] || ''}
+                        onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
+                        className="mb-3 w-full rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-[13px] font-serif text-[14px] text-cream outline-none"
+                      />
+                    )}
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleSave(field.key)}
+                        disabled={savingKey === field.key}
+                        className="cursor-pointer rounded-full bg-gold px-5 py-2 font-sans text-[11.5px] font-semibold uppercase tracking-[0.08em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {savingKey === field.key ? 'Saving…' : 'Save'}
+                      </button>
+                      {savedKey === field.key && (
+                        <span className="font-serif text-[12.5px] text-[#9BC08A]">Saved</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           )}
         </main>
       </div>

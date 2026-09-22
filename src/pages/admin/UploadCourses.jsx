@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
-import { adminListCourses, deleteCourse, duplicateCourse } from '../../lib/courses'
+import { adminListCourses, deleteCourse, deleteCourses, duplicateCourse } from '../../lib/courses'
 import { formatPrice } from '../../lib/billing'
 import { fetchUnresolvedCourseHealthFlags, runCourseHealthCheck } from '../../lib/courseHealth'
 
 const STATUSES = ['draft', 'published', 'archived']
 const ROLES = ['disciple', 'leader', 'pastor']
+const LISTING_TYPES = ['membership', 'course']
 const PAGE_SIZE = 20
 const selectCls = 'w-auto cursor-pointer rounded-[10px] border border-cream/[0.14] bg-cream/[0.04] px-4 py-2.5 font-serif text-[13.5px] text-cream outline-none'
 
@@ -51,9 +52,12 @@ export default function UploadCourses() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [roleFilter, setRoleFilter] = useState('all')
+  const [listingTypeFilter, setListingTypeFilter] = useState('all')
   const [sortBy, setSortBy] = useState('created_desc')
   const [page, setPage] = useState(1)
   const [duplicatingId, setDuplicatingId] = useState(null)
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   // Course-health banner (task: course-health-check) — unresolved flags from
   // the most recent scheduled or manual run (see src/lib/courseHealth.js).
@@ -114,6 +118,46 @@ export default function UploadCourses() {
     }
   }
 
+  function toggleSelected(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // Selects/clears every course matching the current filters, not just the
+  // current page — a bulk action is most useful applied to "everything I
+  // just filtered down to," not one page of 20 at a time.
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const allSelected = filteredCourses.length > 0 && filteredCourses.every((c) => prev.has(c.id))
+      return allSelected ? new Set() : new Set(filteredCourses.map((c) => c.id))
+    })
+  }
+
+  async function handleBulkDelete() {
+    const count = selectedIds.size
+    if (count === 0) return
+    if (
+      !window.confirm(
+        `Remove ${count} course${count === 1 ? '' : 's'} from the site? ${count === 1 ? 'It disappears' : 'They disappear'} everywhere immediately, but nothing is permanently deleted.`
+      )
+    )
+      return
+    setBulkDeleting(true)
+    setError('')
+    try {
+      await deleteCourses([...selectedIds])
+      setSelectedIds(new Set())
+      await refresh()
+    } catch (err) {
+      setError(err.message)
+    }
+    setBulkDeleting(false)
+  }
+
   async function handleDuplicate(course) {
     setError('')
     setDuplicatingId(course.id)
@@ -143,6 +187,7 @@ export default function UploadCourses() {
       if (categoryFilter !== 'all' && c.category !== categoryFilter) return false
       if (statusFilter !== 'all' && (c.status || 'draft') !== statusFilter) return false
       if (roleFilter !== 'all' && !(c.visible_tiers || []).includes(roleFilter)) return false
+      if (listingTypeFilter !== 'all' && (c.listing_type || 'membership') !== listingTypeFilter) return false
       return true
     })
     return filtered.sort((a, b) => {
@@ -158,13 +203,16 @@ export default function UploadCourses() {
           return new Date(b.created_at) - new Date(a.created_at)
       }
     })
-  }, [courses, search, categoryFilter, statusFilter, roleFilter, sortBy])
+  }, [courses, search, categoryFilter, statusFilter, roleFilter, listingTypeFilter, sortBy])
 
   // Reset to page 1 whenever the filtered set could change shape, so a stale
-  // page number never shows a blank page of results.
+  // page number never shows a blank page of results. Selection is cleared
+  // too — otherwise "Delete selected" could include courses the admin can no
+  // longer see (and so can't double-check or deselect) after changing filters.
   useEffect(() => {
     setPage(1)
-  }, [search, categoryFilter, statusFilter, roleFilter, sortBy])
+    setSelectedIds(new Set())
+  }, [search, categoryFilter, statusFilter, roleFilter, listingTypeFilter, sortBy])
 
   const pageCount = Math.max(1, Math.ceil(filteredCourses.length / PAGE_SIZE))
   const currentPage = Math.min(page, pageCount)
@@ -268,6 +316,12 @@ export default function UploadCourses() {
                   <option key={r} value={r}>{capitalize(r)}</option>
                 ))}
               </select>
+              <select value={listingTypeFilter} onChange={(e) => setListingTypeFilter(e.target.value)} style={{ colorScheme: 'dark' }} className={selectCls}>
+                <option value="all">Membership + Courses</option>
+                {LISTING_TYPES.map((t) => (
+                  <option key={t} value={t}>{capitalize(t)}</option>
+                ))}
+              </select>
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ colorScheme: 'dark' }} className={`${selectCls} ml-auto`}>
                 <option value="created_desc">Newest first</option>
                 <option value="created_asc">Oldest first</option>
@@ -277,12 +331,47 @@ export default function UploadCourses() {
             </div>
           )}
 
+          {selectedIds.size > 0 && (
+            <div className="mb-4 flex items-center justify-between gap-4 rounded-cv-lg border border-[#D8888A]/30 bg-[#D8888A]/[0.08] px-5 py-3.5">
+              <span className="font-sans text-[12.5px] font-semibold uppercase tracking-[0.08em] text-[#D8888A]">
+                {selectedIds.size} course{selectedIds.size === 1 ? '' : 's'} selected
+              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(new Set())}
+                  className="cursor-pointer border-none bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-cream/60"
+                >
+                  Clear selection
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting}
+                  className="cursor-pointer whitespace-nowrap rounded-full border-none bg-[#D8888A] px-5 py-2.5 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {bulkDeleting ? 'Deleting…' : `Delete selected (${selectedIds.size})`}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="overflow-hidden rounded-cv-lg border border-cream/[0.09]">
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-cream/[0.09] bg-cream/[0.03]">
+                  <th className="w-10 px-5 py-3">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all courses"
+                      checked={filteredCourses.length > 0 && filteredCourses.every((c) => selectedIds.has(c.id))}
+                      onChange={toggleSelectAll}
+                      className="h-[15px] w-[15px] cursor-pointer accent-gold"
+                    />
+                  </th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Title</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Category</th>
+                  <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Type</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Status</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Price</th>
                   <th className="px-5 py-3 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-cream/50">Visible to</th>
@@ -290,10 +379,10 @@ export default function UploadCourses() {
                 </tr>
               </thead>
               <tbody>
-                {loading && <tr><td colSpan={6} className="px-5 py-6 text-center font-serif text-cream/50">Loading…</td></tr>}
-                {!loading && courses.length === 0 && <tr><td colSpan={6} className="px-5 py-6 text-center font-serif text-cream/50">No courses yet — add your first with “New course.”</td></tr>}
+                {loading && <tr><td colSpan={8} className="px-5 py-6 text-center font-serif text-cream/50">Loading…</td></tr>}
+                {!loading && courses.length === 0 && <tr><td colSpan={8} className="px-5 py-6 text-center font-serif text-cream/50">No courses yet — add your first with “New course.”</td></tr>}
                 {!loading && courses.length > 0 && filteredCourses.length === 0 && (
-                  <tr><td colSpan={6} className="px-5 py-6 text-center font-serif text-cream/50">No courses match your search or filters.</td></tr>
+                  <tr><td colSpan={8} className="px-5 py-6 text-center font-serif text-cream/50">No courses match your search or filters.</td></tr>
                 )}
                 {!loading && pageCourses.map((c) => (
                   <tr
@@ -301,6 +390,15 @@ export default function UploadCourses() {
                     onClick={() => navigate(`/admin/courses/${c.id}/edit`)}
                     className="cursor-pointer border-b border-cream/[0.06] last:border-b-0 hover:bg-cream/[0.03]"
                   >
+                    <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${c.title}`}
+                        checked={selectedIds.has(c.id)}
+                        onChange={() => toggleSelected(c.id)}
+                        className="h-[15px] w-[15px] cursor-pointer accent-gold"
+                      />
+                    </td>
                     <td className="px-5 py-3.5 font-sans text-sm font-medium">
                       {c.title}
                       {c.featured && (
@@ -308,6 +406,7 @@ export default function UploadCourses() {
                       )}
                     </td>
                     <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{c.category || '—'}</td>
+                    <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{capitalize(c.listing_type || 'membership')}</td>
                     <td className="px-5 py-3.5"><StatusBadge status={c.status} /></td>
                     <td className="px-5 py-3.5 font-serif text-sm text-gold">{c.price_cents > 0 ? formatPrice(c.price_cents) : 'Membership only'}</td>
                     <td className="px-5 py-3.5 font-serif text-sm text-cream/60">{c.visible_tiers.join(', ')}</td>

@@ -22,9 +22,9 @@ const adminClient = createClient(
 // migration 0030) over the STRIPE_SECRET_KEY Edge Function secret, so a key
 // pasted into the app takes effect immediately with no redeploy. Falls back
 // to the env secret so a project that hasn't touched that new UI keeps
-// working exactly as before. The column-level REVOKE on
-// payment_settings.secret_key only targets anon/authenticated, so this
-// service-role read is unaffected by it.
+// working exactly as before. payment_settings' RLS only lets anon/
+// authenticated read a row when is_caller_admin() (migration 0030/0031), so
+// this service-role read is unaffected by it.
 async function getStripeSecretKey(): Promise<string> {
   const { data } = await adminClient
     .from('payment_settings')
@@ -51,6 +51,34 @@ function mapSubscriptionStatus(stripeStatus: string): string {
     default:
       return 'pending'
   }
+}
+
+// Upserts one billing_transactions (0032) row for a subscription invoice --
+// shared by invoice.paid and invoice.payment_failed. Looks the member up by
+// stripe_customer_id since invoices don't carry our own user id; silently
+// skips if that customer isn't (or isn't yet) linked to a profile.
+async function recordInvoiceTransaction(invoice: Stripe.Invoice, status: 'paid' | 'failed') {
+  const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id
+  if (!customerId) return
+  const { data: profile } = await adminClient
+    .from('profiles')
+    .select('id')
+    .eq('stripe_customer_id', customerId)
+    .maybeSingle()
+  if (!profile) return
+  await adminClient.from('billing_transactions').upsert(
+    {
+      user_id: profile.id,
+      stripe_invoice_id: invoice.id,
+      amount_cents: (status === 'paid' ? invoice.amount_paid : invoice.amount_due) ?? 0,
+      currency: invoice.currency,
+      status,
+      description: 'Monthly membership',
+      receipt_url: invoice.hosted_invoice_url ?? null,
+      occurred_at: new Date((invoice.created ?? 0) * 1000).toISOString(),
+    },
+    { onConflict: 'stripe_invoice_id' }
+  )
 }
 
 Deno.serve(async (req) => {
@@ -125,6 +153,17 @@ Deno.serve(async (req) => {
         break
       }
 
+      // The one place membership charges land in billing_transactions (0032)
+      // -- covers both the first invoice a subscription checkout creates and
+      // every later renewal, so get-billing-summary and the admin Orders
+      // page never have to call Stripe live to show payment history.
+      // Upserted on stripe_invoice_id so a webhook retry never double-counts.
+      case 'invoice.paid': {
+        const invoice = event.data.object as Stripe.Invoice
+        await recordInvoiceTransaction(invoice, 'paid')
+        break
+      }
+
       case 'invoice.payment_failed': {
         // Stripe's own Smart Retries schedule the retry attempts; we just
         // reflect the current state so the dashboard payment wall kicks
@@ -139,6 +178,7 @@ Deno.serve(async (req) => {
             .update({ subscription_status: 'failed' })
             .eq('stripe_subscription_id', subscriptionId)
         }
+        await recordInvoiceTransaction(invoice, 'failed')
         break
       }
 

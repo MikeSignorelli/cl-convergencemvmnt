@@ -102,3 +102,32 @@ admin course list reads to show a health banner.
 - **Query/body options:** `dryRun` (bool) computes and returns findings
   without writing them; `daysAhead` (int, default 3) sets the "upcoming
   episode" notice window in days.
+
+### create-live-session / delete-live-session
+
+Live sessions (migration 0008, extended by 0036) are real Zoom meetings, not
+manually pasted links. These two admin-only functions call Zoom's
+Server-to-Server OAuth API on the admin's behalf.
+
+- **Deploy:** `supabase functions deploy create-live-session` and
+  `supabase functions deploy delete-live-session`.
+- **Credentials:** unlike Stripe, there's no env-var secret to set here —
+  Zoom's Account ID / Client ID / Client Secret are pasted into the admin
+  Settings → Live sessions tab (same write-only-secret pattern as
+  Settings → Payments) and stored in `zoom_settings`, read only by these two
+  functions via the service role. Create the Server-to-Server OAuth app at
+  https://marketplace.zoom.us (Build App → Server-to-Server OAuth).
+- **Auth:** both require a normal Supabase Auth JWT belonging to an admin
+  (`profiles.tier = 'admin'`, checked server-side) — `verify_jwt = true`.
+- **create-live-session:** exchanges the stored credentials for a Zoom
+  access token, calls `POST /v2/users/me/meetings` with
+  `join_before_host: true` (so members can join at the scheduled time with
+  no admin action to "start" the meeting), then saves a `live_sessions` row
+  with the real `join_url` and `zoom_meeting_id` Zoom returns. Returns a
+  clear error if Zoom isn't configured yet, or if Zoom rejects the
+  credentials.
+- **delete-live-session:** deletes the Zoom meeting (best-effort — a
+  Zoom-side failure doesn't block removing the row) and then the
+  `live_sessions` row.
+- **NOT LIVE-TESTABLE** until real Zoom Server-to-Server OAuth credentials
+  are pasted into Settings → Live sessions.

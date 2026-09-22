@@ -125,6 +125,16 @@ const ADMIN = [
     ),
   },
   {
+    label: 'Orders',
+    to: '/admin/orders',
+    icon: (
+      <>
+        <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+        <line x1="1" y1="10" x2="23" y2="10" />
+      </>
+    ),
+  },
+  {
     label: 'Settings',
     to: '/admin/settings',
     icon: (
@@ -173,6 +183,10 @@ export default function MemberSidebar({ active }) {
   const displayName = profile?.display_name || profile?.username || '—'
   const initials = initialsOf(displayName) || '—'
   const tierLabel = profile?.tier ? profile.tier[0].toUpperCase() + profile.tier.slice(1) : ''
+  // Profile and Payment history are member concepts (subscription, purchase
+  // history) that don't apply to an admin account — hidden here and guarded
+  // at the route level (RequireAuth's memberOnly), rather than shown broken.
+  const identityHref = isAdmin ? '/admin/settings' : '/profile'
 
   async function handleLogout() {
     await signOut()
@@ -187,12 +201,12 @@ export default function MemberSidebar({ active }) {
       <nav className="flex flex-1 flex-col gap-6">
         <NavGroup title="Learn" items={LEARN} active={active} />
         <NavGroup title="Connect" items={CONNECT} active={active} />
-        <NavGroup title="Grow" items={GROW} active={active} />
-        <NavGroup title="Account" items={ACCOUNT} active={active} />
+        {!isAdmin && <NavGroup title="Grow" items={GROW} active={active} />}
+        {!isAdmin && <NavGroup title="Account" items={ACCOUNT} active={active} />}
         {isAdmin && <NavGroup title="Admin" items={ADMIN} active={active} />}
       </nav>
       <div className="flex items-center gap-2.5 rounded-[11px] border border-cream/[0.07] bg-cream/[0.04] p-3">
-        <Link to="/profile" className="flex min-w-0 flex-1 items-center gap-2.5 text-inherit no-underline" title="View profile">
+        <Link to={identityHref} className="flex min-w-0 flex-1 items-center gap-2.5 text-inherit no-underline" title={isAdmin ? 'Account settings' : 'View profile'}>
           <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gold/[0.14] font-sans text-[13px] font-bold text-gold">
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />

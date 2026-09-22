@@ -87,6 +87,7 @@ const CourseDetailsPanel = forwardRef(function CourseDetailsPanel({ course, onSa
   const [featured, setFeatured] = useState(!!course.featured)
   const [price, setPrice] = useState(course.price_cents ? (course.price_cents / 100).toString() : '')
   const [visibleTiers, setVisibleTiers] = useState(course.visible_tiers?.length ? course.visible_tiers : TIERS)
+  const [listingType, setListingType] = useState(course.listing_type || 'membership')
   const [thumbnail, setThumbnail] = useState(null)
   const [error, setError] = useState('')
 
@@ -123,6 +124,7 @@ const CourseDetailsPanel = forwardRef(function CourseDetailsPanel({ course, onSa
       featured,
       price,
       visibleTiers,
+      listingType,
       hasThumbnail: !!thumbnail,
     }
   }
@@ -143,6 +145,7 @@ const CourseDetailsPanel = forwardRef(function CourseDetailsPanel({ course, onSa
     featured: !!course.featured,
     price: course.price_cents ? (course.price_cents / 100).toString() : '',
     visibleTiers: course.visible_tiers?.length ? course.visible_tiers : TIERS,
+    listingType: course.listing_type || 'membership',
     hasThumbnail: false,
   })
   const dirty = JSON.stringify(buildSnapshot()) !== JSON.stringify(baselineRef.current)
@@ -293,6 +296,7 @@ const CourseDetailsPanel = forwardRef(function CourseDetailsPanel({ course, onSa
         featured,
         priceCents: Math.round(parseFloat(price || '0') * 100) || 0,
         visibleTiers,
+        listingType,
         slug: finalSlug,
         shortDescription: shortDescription.trim(),
         isSpecialProgram,
@@ -506,6 +510,21 @@ const CourseDetailsPanel = forwardRef(function CourseDetailsPanel({ course, onSa
       <div>
         <label className={labelCls}>Standalone price (USD — 0 for membership-only)</label>
         <input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="497.00" className={inputCls} />
+      </div>
+
+      <div>
+        <label className={labelCls}>Listing (Membership vs Courses catalog)</label>
+        <div className="flex flex-wrap gap-2.5">
+          <button type="button" onClick={() => setListingType('membership')} className={toggleBtnCls} style={listingType === 'membership' ? toggleOnStyle : toggleOffStyle}>
+            Membership
+          </button>
+          <button type="button" onClick={() => setListingType('course')} className={toggleBtnCls} style={listingType === 'course' ? toggleOnStyle : toggleOffStyle}>
+            Course
+          </button>
+        </div>
+        <p className="mt-1.5 font-serif text-[12px] text-cream/40">
+          Display/filter only — doesn't change who can watch. "Course" also lists it on the public standalone-purchase catalog.
+        </p>
       </div>
 
       <div>

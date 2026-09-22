@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient'
+import { supabase, unwrapFunctionError } from './supabaseClient'
 
 // Calls the create-checkout-session Edge Function (see
 // supabase/functions/README.md) and redirects the browser to the Stripe
@@ -14,7 +14,7 @@ export async function startMembershipCheckout(returnTo) {
   const { data, error } = await supabase.functions.invoke('create-checkout-session', {
     body: { type: 'membership', returnTo },
   })
-  if (error) throw error
+  if (error) throw await unwrapFunctionError(error)
   if (!data?.url) throw new Error('Checkout session did not return a URL.')
   window.location.href = data.url
 }
@@ -39,7 +39,7 @@ export async function startCoursePurchase(courseId) {
   const { data, error } = await supabase.functions.invoke('create-checkout-session', {
     body: { type: 'course', courseId },
   })
-  if (error) throw error
+  if (error) throw await unwrapFunctionError(error)
   if (!data?.url) throw new Error('Checkout session did not return a URL.')
   window.location.href = data.url
 }
@@ -50,8 +50,11 @@ export function formatPrice(cents) {
 }
 
 // Everything the Payment History page needs, in one call to the
-// get-billing-summary Edge Function (which reads live Stripe data server-side
-// — membership charges aren't stored in our DB, only subscription_status is).
+// get-billing-summary Edge Function. Membership status is read live from
+// Stripe (with a DB-only fallback if that lookup fails); membership charge
+// history and course purchases both come from local tables
+// (billing_transactions / course_purchases, see migrations 0032 / 0011),
+// written by stripe-webhook off real events -- not fetched live per page load.
 // Returns:
 //   {
 //     hasStripeCustomer: boolean,
@@ -63,18 +66,19 @@ export function formatPrice(cents) {
 //       upcomingCurrency,
 //       upcomingDate,           // ISO string | null
 //     },
-//     transactions: [{         // membership invoices + course purchases, newest-first
+//     transactions: [{         // course purchases first, then membership invoices, each group newest-first
 //       id, type,               // 'membership' | 'course'
 //       description,            // 'Monthly membership' | course title
 //       date,                   // ISO string
 //       amountCents, currency,
-//       status,                 // membership: paid|open|draft|uncollectible|void ; course: completed|pending|failed
+//       status,                 // membership: paid|failed ; course: completed|pending|failed
 //       receiptUrl,             // hosted Stripe invoice URL, or null
 //     }]
 //   }
+
 export async function fetchBillingSummary() {
   const { data, error } = await supabase.functions.invoke('get-billing-summary')
-  if (error) throw error
+  if (error) throw await unwrapFunctionError(error)
   return data
 }
 
@@ -87,6 +91,6 @@ export async function setMembershipCancellation(cancel) {
   const { data, error } = await supabase.functions.invoke('cancel-subscription', {
     body: { action: cancel ? 'cancel' : 'resume' },
   })
-  if (error) throw error
+  if (error) throw await unwrapFunctionError(error)
   return data
 }

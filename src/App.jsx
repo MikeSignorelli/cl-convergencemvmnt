@@ -8,7 +8,6 @@ import Events  from './pages/Events'
 import Membership from './pages/Membership'
 import Programs from './pages/Programs'
 import LockPreview from './pages/LockPreview'
-import VimeoPreview from './pages/VimeoPreview'
 
 import Dashboard     from './pages/member/Dashboard'
 import Login          from './pages/member/Login'
@@ -30,6 +29,7 @@ import NewCourse          from './pages/admin/NewCourse'
 import ManageCourse       from './pages/admin/ManageCourse'
 import UploadLiveSessions from './pages/admin/UploadLiveSessions'
 import Analytics          from './pages/admin/Analytics'
+import Orders             from './pages/admin/Orders'
 import AdminSettings      from './pages/admin/AdminSettings'
 
 export default function App() {
@@ -44,7 +44,6 @@ export default function App() {
         <Route path="/membership" element={<Membership />} />
         <Route path="/programs" element={<Programs />} />
         <Route path="/lock-preview" element={<LockPreview />} />
-        <Route path="/vimeo-preview" element={<VimeoPreview />} />
 
         <Route path="/onboarding"     element={<Onboarding />} />
         <Route path="/signup/complete" element={<SetPassword />} />
@@ -63,15 +62,16 @@ export default function App() {
         <Route path="/admin/courses/:courseId/edit" element={<RequireAuth adminOnly><ManageCourse /></RequireAuth>} />
         <Route path="/admin/courses/:courseId/episodes" element={<RequireAuth adminOnly><ManageCourse /></RequireAuth>} />
         <Route path="/admin/analytics" element={<RequireAuth adminOnly><Analytics /></RequireAuth>} />
+        <Route path="/admin/orders" element={<RequireAuth adminOnly><Orders /></RequireAuth>} />
         <Route path="/admin/settings" element={<RequireAuth adminOnly><AdminSettings /></RequireAuth>} />
         <Route path="/courses"        element={<CourseLibrary />} />
         <Route path="/courses/:id"    element={<CourseDetail />} />
-        <Route path="/live-sessions"  element={<UploadLiveSessions />} />
+        <Route path="/live-sessions"  element={<RequireAuth><UploadLiveSessions /></RequireAuth>} />
         <Route path="/resources"      element={<UploadResources />} />
         <Route path="/player"         element={<Player />} />
-        <Route path="/progress"       element={<Progress />} />
-        <Route path="/payments"       element={<RequireAuth><PaymentHistory /></RequireAuth>} />
-        <Route path="/profile"        element={<RequireAuth><Profile /></RequireAuth>} />
+        <Route path="/progress"       element={<RequireAuth memberOnly><Progress /></RequireAuth>} />
+        <Route path="/payments"       element={<RequireAuth memberOnly><PaymentHistory /></RequireAuth>} />
+        <Route path="/profile"        element={<RequireAuth memberOnly><Profile /></RequireAuth>} />
         <Route path="/finish-setup"   element={<RequireAuth><FinishSetup /></RequireAuth>} />
 
         <Route path="*" element={<Home />} />

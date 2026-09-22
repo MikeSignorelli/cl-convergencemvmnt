@@ -59,9 +59,12 @@ export function parseCsv(text) {
 }
 
 // Validates one parsed episode-CSV row (expected keys: week, title,
-// video_link, description, release_date — description/release_date are
-// optional). `rowIndex` is used only to make error messages identify the
-// offending row (1-based, matching a spreadsheet's data-row numbering).
+// video_link, description, release_date, thumbnail_url — description/
+// release_date/thumbnail_url are optional). thumbnail_url isn't format-
+// validated (same as description) — an admin who leaves it blank just gets
+// Vimeo's own auto-fetched thumbnail, same as bulk-paste. `rowIndex` is
+// used only to make error messages identify the offending row (1-based,
+// matching a spreadsheet's data-row numbering).
 export function validateEpisodeCsvRow(row, rowIndex) {
   const errors = []
   const label = `Row ${rowIndex}`
