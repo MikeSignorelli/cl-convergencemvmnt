@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import logo from '../../assets/images/convergence-mvmnt.png'
 import mikePortrait from '../../assets/images/drop-a-portrait-of-mike.webp'
-import PaymentWall from '../../components/PaymentWall'
 import UpgradeLock from '../../components/UpgradeLock'
 import VimeoPlayer from '../../components/VimeoPlayer'
 import { fetchCourse } from '../../lib/courses'
-import { listCourseLessons, fetchLessonVideoUrl, fetchLessonProgress, fetchCourseProgress, saveLessonProgress } from '../../lib/courseLessons'
+import { listCourseLessons, fetchLessonVideoUrl, fetchLessonProgress, fetchCourseProgress } from '../../lib/courseLessons'
 import { listCourseResources, getResourceDownloadUrl } from '../../lib/resources'
+import { createEpisodeTracker, getResumeDecision, isProgressTrackingEnabled, markEpisodeComplete } from '../../lib/progress'
+import { getCourseAccess, roleBadgeLabel } from '../../lib/courseAccess'
+import { startCoursePurchase, formatPrice } from '../../lib/billing'
 import { useAuth } from '../../lib/AuthContext'
 
 // The platform is Mike's, so the instructor card is the same on every course.
@@ -72,7 +74,7 @@ function isSequentiallyLocked(ep, index, episodes, course, progress, isAdmin) {
 
 export default function CourseDetail() {
   const { id } = useParams()
-  const { profile, isAdmin, purchasedCourseIds, hasAnyPurchase } = useAuth()
+  const { profile, isAdmin, purchasedCourseIds } = useAuth()
   const [course, setCourse] = useState(null)
   const [episodes, setEpisodes] = useState([])
   const [resources, setResources] = useState([])
@@ -83,7 +85,10 @@ export default function CourseDetail() {
   const [lessonUrl, setLessonUrl] = useState(null)
   const [lessonLoading, setLessonLoading] = useState(false)
   const [resumeSeconds, setResumeSeconds] = useState(0)
+  const [enrolling, setEnrolling] = useState(false)
+  const [enrollError, setEnrollError] = useState('')
   const playerRef = useRef(null)
+  const trackerRef = useRef(null)
 
   useEffect(() => {
     let cancelled = false
@@ -113,13 +118,16 @@ export default function CourseDetail() {
     return () => { cancelled = true }
   }, [id])
 
-  // À-la-carte buyers get into the member area; course access is the full rule
-  // (admin / active member + matching tier / a completed purchase of THIS course).
-  const hasPaidAccess = isAdmin || profile?.subscription_status === 'active' || hasAnyPurchase
-  const hasCourseAccess =
-    isAdmin ||
-    (profile?.subscription_status === 'active' && course?.visible_tiers?.includes(profile?.tier)) ||
-    (!!course && purchasedCourseIds.includes(course.id))
+  // Course access (migration 0041): admin / a completed purchase of THIS
+  // course (overrides role) / an active membership whose role is in
+  // course.visible_tiers. A non-member or wrong-role member still sees the
+  // full course page (episode list, instructor card, etc.) — just locked,
+  // with an enroll/membership CTA instead of a blanket paywall.
+  const access = useMemo(
+    () => (course ? getCourseAccess({ course, profile, isAdmin, purchasedCourseIds }) : { unlocked: false, reason: 'not_entitled' }),
+    [course, profile, isAdmin, purchasedCourseIds]
+  )
+  const hasCourseAccess = access.unlocked
 
   // Task #5 (ManageCourse "Preview as user"): status is new on courses (0021)
   // and fetchCourse() didn't select it at all before this — a draft/archived
@@ -154,6 +162,24 @@ export default function CourseDetail() {
   }, [episodes, progress, course, isAdmin])
 
   const upNext = useMemo(() => decorated.find((e) => e.playable && !e.done) || null, [decorated])
+
+  // Player is visible by default on load, showing the resume/next episode
+  // (or episode 1 if nothing's playable yet) -- not an empty "click an
+  // episode to start" state. No autoplay: this only loads the embed/poster,
+  // playback still needs an explicit click, same as before. Guarded by
+  // autoSelectedRef so this only ever fires once per page load -- without
+  // it, clicking Close (setPlayingId(null)) would immediately trigger this
+  // same effect again and reopen the player right back up.
+  const autoSelectedRef = useRef(false)
+  useEffect(() => {
+    if (autoSelectedRef.current || playingId || !hasCourseAccess || decorated.length === 0) return
+    const defaultEpisode = upNext || decorated[0]
+    if (defaultEpisode) {
+      autoSelectedRef.current = true
+      setPlayingId(defaultEpisode.id)
+    }
+  }, [decorated, hasCourseAccess, playingId, upNext])
+
   const completedCount = useMemo(() => decorated.filter((e) => e.done).length, [decorated])
   const progressPct = useMemo(() => {
     if (episodes.length === 0) return 0
@@ -163,21 +189,47 @@ export default function CourseDetail() {
 
   const playing = decorated.find((e) => e.id === playingId) || null
 
-  // Fetch the gated video URL only once the member chooses to watch something.
+  // Fetch the gated video URL only once the member chooses to watch something,
+  // and stand up a fresh EpisodeTracker (lib/progress.js) for it — the tracker
+  // owns the heartbeat/resume/completion pipeline that actually populates
+  // course_progress; without this, the backend built for it never gets called.
   useEffect(() => {
     if (!playingId || !hasCourseAccess) { setLessonUrl(null); return }
     let cancelled = false
     setLessonLoading(true)
     setResumeSeconds(0)
-    Promise.all([fetchLessonVideoUrl(playingId), fetchLessonProgress(playingId).catch(() => null)])
-      .then(([url, prog]) => {
+    Promise.all([
+      fetchLessonVideoUrl(playingId),
+      fetchLessonProgress(playingId).catch(() => null),
+      isProgressTrackingEnabled(),
+    ])
+      .then(([url, prog, trackingEnabled]) => {
         if (cancelled) return
         setLessonUrl(url)
-        setResumeSeconds(prog && !prog.completed ? prog.seconds || 0 : 0)
+        const decision = getResumeDecision({
+          lastPosition: prog?.seconds || 0,
+          completedAt: prog?.completed ? prog.completed_at || true : null,
+          duration: prog?.duration || 0,
+        })
+        setResumeSeconds(decision.resumeSeconds)
+
+        trackerRef.current?.stop()
+        trackerRef.current = createEpisodeTracker({
+          episodeId: playingId,
+          courseId: id,
+          userId: profile?.id,
+          vimeoId: episodes.find((e) => e.id === playingId)?.vimeo_id,
+          enabled: trackingEnabled && !!profile?.id,
+        })
+        trackerRef.current.onLoaded()
       })
       .catch(() => !cancelled && setLessonUrl(null))
       .finally(() => !cancelled && setLessonLoading(false))
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      trackerRef.current?.stop()
+      trackerRef.current = null
+    }
   }, [playingId, hasCourseAccess])
 
   useEffect(() => {
@@ -189,12 +241,19 @@ export default function CourseDetail() {
   }
   function handleProgress(d) {
     if (!playing) return
-    saveLessonProgress({ lessonId: playing.id, courseId: course.id, seconds: d.seconds, duration: d.duration, percent: d.percent })
+    trackerRef.current?.onTimeupdate(d)
     setProgress((prev) => ({ ...prev, [playing.id]: { ...(prev[playing.id] || {}), percent: d.percent, seconds: Math.round(d.seconds || 0) } }))
   }
   function handleComplete(d) {
     if (!playing) return
-    saveLessonProgress({ lessonId: playing.id, courseId: course.id, seconds: d?.duration ?? d?.seconds, duration: d?.duration, percent: 1, completed: true })
+    trackerRef.current?.onEnded(d)
+    // Explicit completion call alongside the tracker's own heartbeat, which
+    // independently re-validates the completion thresholds server-side —
+    // this just makes it immediate instead of waiting for the next beat.
+    // A 400 here (e.g. sequential-course courses block manual completion)
+    // is expected and fine: the heartbeat's own completion check still
+    // marks it done once the real watch thresholds are met.
+    markEpisodeComplete(playing.id).catch(() => {})
     setProgress((prev) => ({ ...prev, [playing.id]: { ...(prev[playing.id] || {}), percent: 1, completed: true } }))
   }
   async function openResource(r) {
@@ -205,6 +264,21 @@ export default function CourseDetail() {
     } catch { /* storage RLS denies if the caller lacks course access */ }
   }
 
+  // Buying this specific course always unlocks it (the override to the role
+  // gate — migration 0041), whether the viewer has no membership at all or
+  // an active membership that just doesn't include this course's role.
+  async function handleEnroll() {
+    if (!course) return
+    setEnrollError('')
+    setEnrolling(true)
+    try {
+      await startCoursePurchase(course.id)
+    } catch (err) {
+      setEnrollError(err.message || 'Could not start checkout. Please try again.')
+      setEnrolling(false)
+    }
+  }
+
   if (!loading && !error && course && !courseVisible) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-ink font-sans text-cream">
@@ -213,10 +287,6 @@ export default function CourseDetail() {
         </p>
       </div>
     )
-  }
-
-  if (!loading && !error && course && !hasPaidAccess) {
-    return <PaymentWall status={profile?.subscription_status} />
   }
 
   const heroBg = course?.thumbnail_url
@@ -274,15 +344,50 @@ export default function CourseDetail() {
 
           {!hasCourseAccess ? (
             <div className="mx-auto w-full max-w-[900px] px-6 py-12 lg:px-10">
-              <UpgradeLock
-                title="Unlock this course"
-                message={`${episodes.length} episode${episodes.length === 1 ? '' : 's'} inside — join the Convergence membership to stream the whole thing.`}
-                minHeight={360}
-              >
-                <div className="flex aspect-video w-full items-center justify-center bg-black">
-                  <svg width="56" height="56" viewBox="0 0 24 24" fill="#C2A064"><path d="M8 5v14l11-7z" /></svg>
-                </div>
-              </UpgradeLock>
+              {access.reason === 'wrong_role' ? (
+                // Active membership, but this course is assigned to a role
+                // they don't hold — membership itself can never unlock it,
+                // only buying this specific course can (migration 0041), so
+                // there's no upsell-to-membership CTA here at all.
+                <UpgradeLock
+                  eyebrow={`${roleBadgeLabel(course.visible_tiers)} course`}
+                  title="Not included in your role"
+                  message={`This course is for ${roleBadgeLabel(course.visible_tiers)} members. Your membership doesn't include it, but you can buy just this course to unlock it.`}
+                  price={formatPrice(course.price_cents)}
+                  cta="Enroll in this course"
+                  minHeight={360}
+                  onUpgrade={course.price_cents > 0 ? handleEnroll : undefined}
+                >
+                  <div className="flex aspect-video w-full items-center justify-center bg-black">
+                    <svg width="56" height="56" viewBox="0 0 24 24" fill="#C2A064"><path d="M8 5v14l11-7z" /></svg>
+                  </div>
+                </UpgradeLock>
+              ) : (
+                <>
+                  <UpgradeLock
+                    title="Unlock this course"
+                    message={`${episodes.length} episode${episodes.length === 1 ? '' : 's'} inside — join the Convergence membership to stream every course for your role.`}
+                    minHeight={360}
+                  >
+                    <div className="flex aspect-video w-full items-center justify-center bg-black">
+                      <svg width="56" height="56" viewBox="0 0 24 24" fill="#C2A064"><path d="M8 5v14l11-7z" /></svg>
+                    </div>
+                  </UpgradeLock>
+                  {course.price_cents > 0 && (
+                    <div className="mt-5 text-center">
+                      <button
+                        type="button"
+                        onClick={handleEnroll}
+                        disabled={enrolling}
+                        className="cursor-pointer border-none bg-transparent font-sans text-[12.5px] font-semibold uppercase tracking-[0.1em] text-gold underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {enrolling ? 'Redirecting…' : `Or buy just this course — ${formatPrice(course.price_cents)} →`}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+              {enrollError && <p className="mt-3 text-center font-serif text-[13px] text-[#D8888A]">{enrollError}</p>}
             </div>
           ) : (
             <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 gap-9 px-6 py-10 lg:grid-cols-[1fr_360px] lg:px-10">
@@ -297,7 +402,17 @@ export default function CourseDetail() {
                     {lessonLoading ? (
                       <div className="flex aspect-video items-center justify-center rounded-cv-lg border border-cream/[0.09] bg-black"><span className="font-serif text-cream/50">Loading video…</span></div>
                     ) : lessonUrl ? (
-                      <VimeoPlayer key={playing.id} video={lessonUrl} startAt={resumeSeconds} onProgress={handleProgress} onComplete={handleComplete} />
+                      <VimeoPlayer
+                        key={playing.id}
+                        video={lessonUrl}
+                        startAt={resumeSeconds}
+                        onProgress={handleProgress}
+                        onComplete={handleComplete}
+                        onPause={(d) => trackerRef.current?.onPause(d)}
+                        onSeeked={(d) => trackerRef.current?.onSeeked(d)}
+                        onPlaybackRateChange={(rate) => trackerRef.current?.onPlaybackRateChange(rate)}
+                        onResumeApplied={(seconds) => trackerRef.current?.onResumeApplied(seconds)}
+                      />
                     ) : (
                       <div className="flex aspect-video items-center justify-center rounded-cv-lg border border-cream/[0.09] bg-black"><span className="font-serif text-cream/50">This episode doesn&rsquo;t have a video yet.</span></div>
                     )}
@@ -330,8 +445,8 @@ export default function CourseDetail() {
                         } ${ep.playable ? 'cursor-pointer hover:border-cream/25' : 'cursor-not-allowed opacity-70'}`}
                       >
                         <div className="relative h-[52px] w-[88px] shrink-0 overflow-hidden rounded-lg bg-[rgb(30,36,22)]">
-                          {ep.thumbnail_url && (
-                            <img src={ep.thumbnail_url} alt="" className={`h-full w-full object-cover ${ep.playable ? 'brightness-[0.85]' : 'blur-[2px] brightness-[0.5]'}`} />
+                          {(ep.thumbnail_url || heroBg) && (
+                            <img src={ep.thumbnail_url || heroBg} alt="" className={`h-full w-full object-cover ${ep.playable ? 'brightness-[0.85]' : 'blur-[2px] brightness-[0.5]'}`} />
                           )}
                           <div className="absolute inset-0 flex items-center justify-center">
                             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[rgba(10,13,7,0.72)]">
@@ -404,13 +519,17 @@ export default function CourseDetail() {
                 </div>
 
                 <div className="rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] p-5">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="font-sans text-[10px] font-semibold uppercase tracking-[0.14em] text-cream/45">Your progress</span>
-                    <span className="font-sans text-[15px] font-bold text-white">{progressPct}%</span>
-                  </div>
-                  <div className="mb-4 h-[6px] overflow-hidden rounded-full bg-cream/[0.12]">
-                    <div className="h-full rounded-full bg-gold" style={{ width: `${progressPct}%` }} />
-                  </div>
+                  {!isAdmin && (
+                    <>
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="font-sans text-[10px] font-semibold uppercase tracking-[0.14em] text-cream/45">Your progress</span>
+                        <span className="font-sans text-[15px] font-bold text-white">{progressPct}%</span>
+                      </div>
+                      <div className="mb-4 h-[6px] overflow-hidden rounded-full bg-cream/[0.12]">
+                        <div className="h-full rounded-full bg-gold" style={{ width: `${progressPct}%` }} />
+                      </div>
+                    </>
+                  )}
                   <button
                     type="button"
                     disabled={!upNext && !decorated.some((e) => e.playable)}

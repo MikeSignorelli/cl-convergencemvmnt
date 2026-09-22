@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 import { isSignupPendingFor } from './onboardingSignup'
+import { clearAllProgressCaches } from './progress'
 
 const AuthContext = createContext(null)
 
@@ -170,6 +171,11 @@ export function AuthProvider({ children }) {
 
   const signOut = useCallback(async () => {
     setPreviewTier(null)
+    // Never let the next person to sign in on this browser see a previous
+    // member's watch positions (progress spec item #28) -- every progress
+    // cache is keyed by user id, but clearing on logout is the one point
+    // that's easy to forget, so it's explicit here rather than relied on.
+    clearAllProgressCaches()
     await supabase.auth.signOut()
   }, [])
 

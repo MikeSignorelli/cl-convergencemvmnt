@@ -28,10 +28,15 @@ function decorate(rows) {
 
 // Member/public episode list — NO video_url (it's revoked at the DB and served
 // only through get_lesson_video_url after the access + drip check).
+// thumbnail_url IS included (not sensitive — a public CDN image, not the
+// gated video) — it was missing here entirely, so decorate()'s fallback to
+// the Vimeo-fetched thumbnail (its whole reason for existing, see the
+// comment above) could never actually fire on this page: every episode with
+// no manually-uploaded thumbnail_path rendered as a blank box instead.
 export async function listCourseLessons(courseId) {
   const { data, error } = await supabase
     .from('course_lessons')
-    .select('id, course_id, title, description, extra_info, thumbnail_path, duration_label, release_at, week_number, is_open_access, position, created_at')
+    .select('id, course_id, title, description, extra_info, thumbnail_path, thumbnail_url, duration_label, release_at, week_number, is_open_access, position, created_at')
     .eq('course_id', courseId)
     .order('position', { ascending: true })
   if (error) throw error
@@ -158,25 +163,13 @@ export async function deleteLesson(id, thumbnailPath) {
 }
 
 // ---- Watch progress (lesson_progress) --------------------------------------
-
-export async function saveLessonProgress({ lessonId, courseId, seconds, duration, percent, completed }) {
-  const { data: userData } = await supabase.auth.getUser()
-  const uid = userData.user?.id
-  if (!uid) return
-  await supabase.from('lesson_progress').upsert(
-    {
-      user_id: uid,
-      lesson_id: lessonId,
-      course_id: courseId,
-      seconds: Math.round(seconds || 0),
-      duration: duration ? Math.round(duration) : null,
-      percent: percent || 0,
-      completed: completed || false,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id,lesson_id' }
-  )
-}
+//
+// Writes now go exclusively through lib/progress.js's EpisodeTracker →
+// progress-heartbeat/progress-complete Edge Functions (server-enforced via
+// can_play_episode, with proper resume/completion thresholds) — CourseDetail
+// used to write here directly via a now-removed saveLessonProgress, which
+// had no access check at all. The reads below stay: the Edge Functions write
+// into these same columns, so they're still the right place to read from.
 
 // All of the caller's progress rows for one course, keyed by lesson_id — powers
 // the per-episode DONE / in-progress state, the course progress bar, and (via
@@ -195,7 +188,7 @@ export async function fetchCourseProgress(courseId) {
 export async function fetchLessonProgress(lessonId) {
   const { data } = await supabase
     .from('lesson_progress')
-    .select('seconds, percent, completed')
+    .select('seconds, percent, completed, duration, completed_at')
     .eq('lesson_id', lessonId)
     .maybeSingle()
   return data
@@ -221,4 +214,18 @@ export async function fetchContinueWatching() {
     episodeTitle: data.course_lessons?.title,
     thumbnailUrl: courseThumbnailUrl(data.courses?.thumbnail_path),
   }
+}
+
+// Episode count per course, for the library page's "N episodes" meta line
+// and card progress bar — independent of any one member's own progress
+// (course_progress.total_episodes only exists once that member has
+// interacted with the course), so this counts straight from course_lessons
+// and works for every course, started or not. Same "fetch everything,
+// group client-side" approach Analytics.jsx already uses at this site's scale.
+export async function fetchEpisodeCounts() {
+  const { data, error } = await supabase.from('course_lessons').select('course_id')
+  if (error) throw error
+  const counts = {}
+  for (const row of data || []) counts[row.course_id] = (counts[row.course_id] || 0) + 1
+  return counts
 }

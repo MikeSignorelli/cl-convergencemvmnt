@@ -18,6 +18,33 @@ export function extractVimeoId(urlOrId) {
   return match ? match[1] : null
 }
 
+// Like extractVimeoId, but also keeps the private-link hash
+// (vimeo.com/123456789/abcdef) when present, so an unlisted/private video's
+// embed URL can be built directly (player.vimeo.com/video/123456789?h=abcdef)
+// without an oEmbed round trip -- oEmbed can't see private videos at all,
+// so this is the only way those actually play. Returns null if no numeric
+// id can be found.
+export function parseVimeoRef(urlOrId) {
+  if (urlOrId == null) return null
+  const value = String(urlOrId).trim()
+  if (!value) return null
+
+  if (/^\d+$/.test(value)) return { id: value, hash: null }
+
+  const match = value.match(/vimeo\.com\/(?:video\/)?(\d+)(?:\/([a-zA-Z0-9]+))?/i)
+  return match ? { id: match[1], hash: match[2] || null } : null
+}
+
+// Builds a direct player.vimeo.com embed URL for use as an <iframe src> --
+// see parseVimeoRef for why this doesn't go through oEmbed.
+export function buildVimeoEmbedUrl(urlOrId) {
+  const ref = parseVimeoRef(urlOrId)
+  if (!ref) return null
+  const params = new URLSearchParams({ dnt: '1' })
+  if (ref.hash) params.set('h', ref.hash)
+  return `https://player.vimeo.com/video/${ref.id}?${params.toString()}`
+}
+
 // Fetches title/duration/thumbnail for a public Vimeo video via oEmbed.
 // `url` should be a full vimeo.com URL (not a bare id). Throws a clear Error
 // when Vimeo responds with a non-200 status (e.g. an invalid or private

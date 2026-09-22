@@ -9,6 +9,14 @@ export const SETTING_KEYS = {
   MEMBERSHIP_PRICE_DISPLAY: 'membership_price_display',
   SUPPORT_EMAIL: 'support_email',
   WELCOME_EMAIL_MESSAGE: 'welcome_email_message',
+  // Not a content string like the rest of this file — a boolean flag ('true'
+  // / 'false') for the progress-tracking module (features/progress-equivalent:
+  // src/lib/progress.js + supabase/functions/progress-*). Reusing this table
+  // rather than a dedicated flags table since this app has no other feature
+  // flags yet; readable by anon/authenticated (app_settings' existing RLS),
+  // writable by admin only. Off -> no heartbeats, no progress UI, existing
+  // pages render exactly as they did before this module existed.
+  PROGRESS_TRACKING_ENABLED: 'progress_tracking_enabled',
 }
 
 const DEFAULTS = {
@@ -17,6 +25,7 @@ const DEFAULTS = {
   [SETTING_KEYS.MEMBERSHIP_PRICE_DISPLAY]: '$49/mo',
   [SETTING_KEYS.SUPPORT_EMAIL]: 'support@convergencemvmnt.com',
   [SETTING_KEYS.WELCOME_EMAIL_MESSAGE]: 'Welcome to Convergence MVMNT — glad you’re here.',
+  [SETTING_KEYS.PROGRESS_TRACKING_ENABLED]: 'true',
 }
 
 export async function fetchAppSettings() {
