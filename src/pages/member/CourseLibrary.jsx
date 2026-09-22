@@ -2,67 +2,102 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
-import PaymentWall from '../../components/PaymentWall'
+import CourseCard from '../../components/CourseCard'
 import { useAuth } from '../../lib/AuthContext'
 import { listCourses } from '../../lib/courses'
+import { fetchEpisodeCounts } from '../../lib/courseLessons'
+import { fetchMyProgress, fetchContinueWatchingCourses } from '../../lib/progress'
+import { getCourseAccess } from '../../lib/courseAccess'
+import { startCoursePurchase } from '../../lib/billing'
 import heroImage from '../../assets/app-images/course-library-1.jpg'
 
-function capitalize(word) {
-  return word ? word.charAt(0).toUpperCase() + word.slice(1) : word
-}
+// Horizontal "Continue watching" row — only the courses this member has
+// actually started and not finished, most-recently-watched first. Skipped
+// entirely for admin (no progress is ever tracked for that role) and for
+// anyone with nothing in progress yet. progress-continue-watching only
+// returns a flat summary (course id/title/thumbnail path), not the full
+// course row, so this re-resolves each item against the already-loaded
+// `courses` list to get visible_tiers/price_cents/etc for CourseCard, and
+// re-checks access for real (getCourseAccess) rather than assuming
+// unlocked=true — a lapsed membership should still show the same lock/price
+// state here as everywhere else.
+function ContinueWatchingRow({ items, courses, episodeCounts, profile, isAdmin, purchasedCourseIds }) {
+  const resolved = items
+    .map((item) => {
+      const course = courses.find((c) => c.id === item.courseId)
+      return course ? { course, percent: item.percent } : null
+    })
+    .filter(Boolean)
 
-function LockBadge({ label }) {
+  if (resolved.length === 0) return null
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-[rgba(10,13,7,0.45)]">
-      <div className="flex items-center gap-[7px] rounded-full border border-cream/20 bg-[rgba(10,13,7,0.7)] px-4 py-2 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-cream/85">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
-        {label}
+    <div className="px-10 pt-9">
+      <h2 className="mb-3.5 text-[17px] font-bold uppercase tracking-[0.1em] text-white">Continue watching</h2>
+      <div className="flex flex-wrap gap-[18px]">
+        {resolved.map(({ course, percent }) => (
+          <CourseCard
+            key={course.id}
+            course={course}
+            access={getCourseAccess({ course, profile, isAdmin, purchasedCourseIds })}
+            episodeCount={episodeCounts[course.id]}
+            progressPercent={percent}
+          />
+        ))}
       </div>
     </div>
   )
 }
 
-function CourseCard({ course, unlocked }) {
-  const lockLabel = `${capitalize(course.visible_tiers?.[0])} tier`
-  return (
-    <Link to={`/courses/${course.id}`} className="block w-[300px] shrink-0 text-inherit no-underline">
-      <div className="relative mb-2.5 aspect-video overflow-hidden rounded-xl border border-cream/[0.09] bg-[rgb(30,36,22)]">
-        {course.thumbnail_url && (
-          <img
-            src={course.thumbnail_url}
-            alt=""
-            className={`absolute inset-0 h-full w-full object-cover ${
-              unlocked ? 'brightness-[0.7]' : 'scale-105 brightness-[0.5] blur-[3px]'
-            }`}
-          />
-        )}
-        <div className="absolute inset-0 bg-[linear-gradient(transparent_40%,rgba(10,13,7,0.85))]" />
-        {!unlocked && <LockBadge label={lockLabel} />}
-        <div className="absolute bottom-3 left-3.5 right-3.5 text-base font-bold uppercase leading-[1.05] text-white">
-          {course.title}
-        </div>
-      </div>
-      {course.duration_label && (
-        <div className="text-xs font-semibold tracking-[0.06em] text-cream/55">{course.duration_label}</div>
-      )}
-    </Link>
-  )
-}
-
 export default function CourseLibrary() {
-  const { profile, isAdmin, purchasedCourseIds, hasAnyPurchase } = useAuth()
+  const { profile, isAdmin, purchasedCourseIds } = useAuth()
   const navigate = useNavigate()
   const [courses, setCourses] = useState([])
+  const [episodeCounts, setEpisodeCounts] = useState({})
+  const [progressByCourseId, setProgressByCourseId] = useState({})
+  const [continueWatching, setContinueWatching] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
   const [query, setQuery] = useState('')
+  // One object rather than two separate states: clearing enrollingId on
+  // error also blanked the error message that was keyed off it, so it never
+  // actually rendered.
+  const [enrollStatus, setEnrollStatus] = useState({ id: null, pending: false, error: '' })
 
   useEffect(() => {
     let cancelled = false
+
+    // Split out from the course list load so it can also be called again
+    // on its own (see the visibility effect below) without re-fetching
+    // courses/episode counts every time — this is the part that's actually
+    // live and needs to stay fresh: course_progress is recomputed by the
+    // heartbeat/complete/start-over Edge Functions on every real watch
+    // event, so re-running this after the member comes back to this tab
+    // (having watched more, possibly on another device) reflects that
+    // immediately instead of showing whatever was true when the page first
+    // mounted. Admin never has progress rows, so both calls just no-op for
+    // that role.
+    async function loadProgress() {
+      if (isAdmin) return
+      try {
+        const mine = await fetchMyProgress()
+        if (cancelled) return
+        const map = {}
+        for (const entry of [...(mine.inProgress || []), ...(mine.completed || []), ...(mine.notStarted || [])]) {
+          map[entry.courseId] = entry.percent
+        }
+        setProgressByCourseId(map)
+      } catch {
+        /* cards just show without a progress bar/percent */
+      }
+      try {
+        const items = await fetchContinueWatchingCourses(6)
+        if (!cancelled) setContinueWatching(items)
+      } catch {
+        /* continue-watching row just stays empty */
+      }
+    }
+
     async function load() {
       try {
         const courseList = await listCourses()
@@ -73,24 +108,33 @@ export default function CourseLibrary() {
       } finally {
         if (!cancelled) setLoading(false)
       }
+      // Episode counts and progress are separate, best-effort fetches —
+      // neither should block the course grid itself from rendering (graceful
+      // failure: the API being down just means no bars/counts, not a broken
+      // page), and a member with nothing started yet legitimately has no
+      // progress rows at all.
+      try {
+        const counts = await fetchEpisodeCounts()
+        if (!cancelled) setEpisodeCounts(counts)
+      } catch {
+        /* cards just show without an episode count */
+      }
+      await loadProgress()
     }
     load()
+
+    function handleVisibilityOrFocus() {
+      if (document.visibilityState === 'visible') loadProgress()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+    window.addEventListener('focus', handleVisibilityOrFocus)
+
     return () => {
       cancelled = true
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+      window.removeEventListener('focus', handleVisibilityOrFocus)
     }
-  }, [])
-
-  // Every course is included in the single membership — access is gated
-  // on an active subscription (see PaymentWall) plus the member's own tier
-  // matching a course's visible_tiers (see get_course_video_url in
-  // migration 0013), not on purchasing anything individually.
-  // À-la-carte buyers get in too (they see their course; the rest are locked).
-  const hasPaidAccess = isAdmin || profile?.subscription_status === 'active' || hasAnyPurchase
-
-  const isUnlocked = (course) =>
-    isAdmin ||
-    (profile?.subscription_status === 'active' && course.visible_tiers?.includes(profile?.tier)) ||
-    purchasedCourseIds.includes(course.id)
+  }, [isAdmin])
 
   const categories = useMemo(() => {
     const seen = []
@@ -118,6 +162,13 @@ export default function CourseLibrary() {
     [courses]
   )
 
+  function handleEnroll(courseId) {
+    setEnrollStatus({ id: courseId, pending: true, error: '' })
+    startCoursePurchase(courseId).catch((err) => {
+      setEnrollStatus({ id: courseId, pending: false, error: err.message || 'Could not start checkout. Please try again.' })
+    })
+  }
+
   return (
     <div className="flex min-h-screen bg-ink font-sans text-cream">
       <MemberSidebar active="/courses" />
@@ -130,9 +181,6 @@ export default function CourseLibrary() {
           actionOnClick={() => navigate('/admin/courses')}
         />
 
-        {!hasPaidAccess ? (
-          <PaymentWall status={profile?.subscription_status} />
-        ) : (
         <main className="flex-1 pb-16">
           {loading && <p className="px-10 pt-9 font-serif text-cream/50">Loading courses…</p>}
           {!loading && error && <p className="px-10 pt-9 font-serif text-[#D8888A]">{error}</p>}
@@ -194,6 +242,17 @@ export default function CourseLibrary() {
             </div>
           )}
 
+          {!loading && !error && !isAdmin && (
+            <ContinueWatchingRow
+              items={continueWatching}
+              courses={courses}
+              episodeCounts={episodeCounts}
+              profile={profile}
+              isAdmin={isAdmin}
+              purchasedCourseIds={purchasedCourseIds}
+            />
+          )}
+
           <div className="flex flex-col gap-[38px] px-10 pt-9">
             {!loading && !error && courses.length === 0 && (
               <p className="font-serif text-cream/50">No courses published yet.</p>
@@ -211,16 +270,27 @@ export default function CourseLibrary() {
                         {group.category}
                       </h2>
                       <div className="flex flex-wrap gap-[18px]">
-                        {group.courses.map((course) => (
-                          <CourseCard key={course.id} course={course} unlocked={isUnlocked(course)} />
-                        ))}
+                        {group.courses.map((course) => {
+                          const access = getCourseAccess({ course, profile, isAdmin, purchasedCourseIds })
+                          return (
+                            <CourseCard
+                              key={course.id}
+                              course={course}
+                              access={access}
+                              episodeCount={episodeCounts[course.id]}
+                              progressPercent={progressByCourseId[course.id] || 0}
+                              onEnroll={handleEnroll}
+                              enrolling={enrollStatus.id === course.id && enrollStatus.pending}
+                              enrollError={enrollStatus.id === course.id ? enrollStatus.error : ''}
+                            />
+                          )
+                        })}
                       </div>
                     </section>
                   )
               )}
           </div>
         </main>
-        )}
       </div>
     </div>
   )

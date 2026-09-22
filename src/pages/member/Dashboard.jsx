@@ -1,12 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
-import PaymentWall, { PaymentStatusBadge } from '../../components/PaymentWall'
+import CourseCard from '../../components/CourseCard'
+import { PaymentStatusBadge } from '../../components/PaymentWall'
 import { useAuth } from '../../lib/AuthContext'
 import { listLiveSessions } from '../../lib/liveSessions'
-import { fetchContinueWatching } from '../../lib/courseLessons'
-import continueWatchingImg from '../../assets/app-images/dashboard-continue-watching.jpg'
+import { listCourses } from '../../lib/courses'
+import { fetchEpisodeCounts } from '../../lib/courseLessons'
+import { fetchMyProgress, fetchContinueWatchingCourses } from '../../lib/progress'
+import { getCourseAccess } from '../../lib/courseAccess'
+import { startCoursePurchase } from '../../lib/billing'
 import dailyResetImg from '../../assets/app-images/dashboard-daily-reset.jpg'
 
 const TIERS = {
@@ -127,8 +131,71 @@ function googleCalendarUrl(session) {
   return `https://calendar.google.com/calendar/render?${params.toString()}`
 }
 
+// Real course grid — every published course, each with its own lock/progress
+// state (getCourseAccess), plus a "continue watching" shortlist above it when
+// there's anything in progress. Used both for a paying member (real progress,
+// no progress bar for admin) and a non-member (every course locked with its
+// price + Enroll Now — the whole point being to drive a purchase or
+// membership signup right from the dashboard instead of a blanket paywall).
+function YourCoursesSection({
+  courses,
+  loading,
+  episodeCounts,
+  progressByCourseId,
+  continueWatching,
+  profile,
+  isAdmin,
+  purchasedCourseIds,
+  onEnroll,
+  enrollStatus,
+  emptyMessage = 'No courses published yet.',
+}) {
+  return (
+    <section className="mb-[30px]">
+      {continueWatching.length > 0 && (
+        <div className="mb-7">
+          <h2 className="mb-3.5 font-sans text-[15px] font-bold uppercase tracking-[0.1em] text-white">
+            Continue watching
+          </h2>
+          <div className="flex flex-wrap gap-[18px]">
+            {continueWatching.map(({ course, percent }) => (
+              <CourseCard
+                key={course.id}
+                course={course}
+                access={getCourseAccess({ course, profile, isAdmin, purchasedCourseIds })}
+                episodeCount={episodeCounts[course.id]}
+                progressPercent={percent}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <h2 className="mb-3.5 font-sans text-[15px] font-bold uppercase tracking-[0.1em] text-white">Your courses</h2>
+      {loading && <p className="font-serif text-cream/50">Loading courses…</p>}
+      {!loading && courses.length === 0 && <p className="font-serif text-cream/50">{emptyMessage}</p>}
+      {!loading && courses.length > 0 && (
+        <div className="flex flex-wrap gap-[18px]">
+          {courses.map((course) => (
+            <CourseCard
+              key={course.id}
+              course={course}
+              access={getCourseAccess({ course, profile, isAdmin, purchasedCourseIds })}
+              episodeCount={episodeCounts[course.id]}
+              progressPercent={progressByCourseId[course.id] || 0}
+              onEnroll={onEnroll}
+              enrolling={enrollStatus.id === course.id && enrollStatus.pending}
+              enrollError={enrollStatus.id === course.id ? enrollStatus.error : ''}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export default function Dashboard() {
-  const { profile, isAdmin, previewTier, setPreviewTier, hasAnyPurchase } = useAuth()
+  const { profile, isAdmin, previewTier, setPreviewTier, hasAnyPurchase, purchasedCourseIds } = useAuth()
   const tier = isAdmin ? previewTier || 'disciple' : profile?.tier || 'disciple'
   const readOnly = isAdmin
   const [dailyDone, setDailyDone] = useState(false)
@@ -161,17 +228,109 @@ export default function Dashboard() {
     }
   }, [])
 
-  // Real "continue watching" — most recently watched, unfinished episode.
-  const [continueWatching, setContinueWatching] = useState(null)
+  // Every course, real per-course progress, and a "continue watching"
+  // shortlist — the dashboard used to show only the single most-recently-
+  // watched episode and hide every other course (including finished ones).
+  // Admin never gets progress rows at all (no bar, ever, for that role).
+  const [courses, setCourses] = useState([])
+  const [episodeCounts, setEpisodeCounts] = useState({})
+  const [progressByCourseId, setProgressByCourseId] = useState({})
+  const [continueWatchingItems, setContinueWatchingItems] = useState([])
+  const [coursesLoading, setCoursesLoading] = useState(true)
+  // One object rather than two separate states: clearing enrollingId on
+  // error also blanked the error message that was keyed off it, so it never
+  // actually rendered.
+  const [enrollStatus, setEnrollStatus] = useState({ id: null, pending: false, error: '' })
+
   useEffect(() => {
     let cancelled = false
-    fetchContinueWatching()
-      .then((cw) => !cancelled && setContinueWatching(cw))
-      .catch(() => {})
+
+    async function loadProgress() {
+      if (isAdmin) return
+      try {
+        const mine = await fetchMyProgress()
+        if (cancelled) return
+        const map = {}
+        for (const entry of [...(mine.inProgress || []), ...(mine.completed || []), ...(mine.notStarted || [])]) {
+          map[entry.courseId] = entry.percent
+        }
+        setProgressByCourseId(map)
+      } catch {
+        /* cards just show without a progress bar/percent */
+      }
+      try {
+        const items = await fetchContinueWatchingCourses(4)
+        if (!cancelled) setContinueWatchingItems(items)
+      } catch {
+        /* continue-watching row just stays empty */
+      }
+    }
+
+    async function load() {
+      try {
+        const courseList = await listCourses()
+        if (!cancelled) setCourses(courseList)
+      } catch {
+        /* course grid just stays empty on failure — the rest of the dashboard still works */
+      } finally {
+        if (!cancelled) setCoursesLoading(false)
+      }
+      try {
+        const counts = await fetchEpisodeCounts()
+        if (!cancelled) setEpisodeCounts(counts)
+      } catch {
+        /* cards just show without an episode count */
+      }
+      await loadProgress()
+    }
+    load()
+
+    function handleVisibilityOrFocus() {
+      if (document.visibilityState === 'visible') loadProgress()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+    window.addEventListener('focus', handleVisibilityOrFocus)
     return () => {
       cancelled = true
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+      window.removeEventListener('focus', handleVisibilityOrFocus)
     }
-  }, [])
+  }, [isAdmin])
+
+  // The dashboard is "your courses", not the full catalog — a paid member
+  // only sees what's actually assigned to their role (or individually
+  // purchased outside it). Browsing everything else, locked, still lives on
+  // /courses and /programs. Admin keeps seeing every course (there's no
+  // "assigned" role to filter by when you can manage all of them), and a
+  // non-member still sees the full catalog with price/Enroll — that's their
+  // only path to ever get an assigned course.
+  const visibleCourses = useMemo(() => {
+    if (isAdmin || !hasPaidAccess) return courses
+    return courses.filter((c) => getCourseAccess({ course: c, profile, isAdmin, purchasedCourseIds }).unlocked)
+  }, [courses, isAdmin, hasPaidAccess, profile, purchasedCourseIds])
+
+  const continueWatchingResolved = useMemo(
+    () =>
+      continueWatchingItems
+        .map((item) => {
+          const course = courses.find((c) => c.id === item.courseId)
+          if (!course) return null
+          // Same "assigned only" rule as the grid above — if access lapsed
+          // since this was last watched, it drops out of Continue Watching
+          // rather than showing up locked with an Enroll button here.
+          if (!isAdmin && hasPaidAccess && !getCourseAccess({ course, profile, isAdmin, purchasedCourseIds }).unlocked) return null
+          return { course, percent: item.percent }
+        })
+        .filter(Boolean),
+    [continueWatchingItems, courses, isAdmin, hasPaidAccess, profile, purchasedCourseIds]
+  )
+
+  function handleEnroll(courseId) {
+    setEnrollStatus({ id: courseId, pending: true, error: '' })
+    startCoursePurchase(courseId).catch((err) => {
+      setEnrollStatus({ id: courseId, pending: false, error: err.message || 'Could not start checkout. Please try again.' })
+    })
+  }
 
   // Real session when one exists; otherwise the demo teaser stays, but the
   // button is disabled — it only ever adds a real, scheduled event.
@@ -185,9 +344,6 @@ export default function Dashboard() {
       <div className="flex flex-1 flex-col min-w-0">
         <MemberTopbar streak={t.streak} />
 
-        {!hasPaidAccess ? (
-          <PaymentWall status={profile?.subscription_status} />
-        ) : (
         <main className="mx-auto w-full max-w-[1180px] flex-1 px-8 pb-16 pt-9">
           <div className="mb-[30px] flex flex-wrap items-center justify-between gap-5">
             <div>
@@ -246,7 +402,7 @@ export default function Dashboard() {
           </div>
 
           {/* Recovery nudge: paid, but profile step never finished (see FinishSetup / task A8). */}
-          {!isAdmin && !profile?.display_name && (
+          {hasPaidAccess && !isAdmin && !profile?.display_name && (
             <div className="mb-[22px] flex flex-wrap items-center justify-between gap-3 rounded-cv-lg border border-gold/30 bg-gold/[0.08] px-5 py-3.5">
               <div className="flex items-center gap-2.5">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E9CF9C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -278,60 +434,47 @@ export default function Dashboard() {
             </div>
           )}
 
+          <YourCoursesSection
+            courses={visibleCourses}
+            loading={coursesLoading}
+            episodeCounts={episodeCounts}
+            progressByCourseId={progressByCourseId}
+            continueWatching={continueWatchingResolved}
+            emptyMessage={
+              !isAdmin && hasPaidAccess && courses.length > 0
+                ? 'No courses assigned to your role yet — browse the full library in Courses.'
+                : 'No courses published yet.'
+            }
+            profile={profile}
+            isAdmin={isAdmin}
+            purchasedCourseIds={purchasedCourseIds}
+            onEnroll={handleEnroll}
+            enrollStatus={enrollStatus}
+          />
+
+          {!hasPaidAccess && (
+            <div className="mb-[22px] flex flex-wrap items-center justify-between gap-4 rounded-cv-lg border border-gold/30 bg-gold/[0.08] px-6 py-5">
+              <div>
+                <div className="mb-1 font-sans text-[15px] font-bold uppercase tracking-[0.05em] text-white">
+                  Get every course, live sessions, and the full community
+                </div>
+                <div className="font-serif text-[13.5px] text-cream/65">
+                  Membership includes everything for your role at $49/mo — or buy just one course above.
+                </div>
+              </div>
+              <Link
+                to="/membership"
+                className="shrink-0 rounded-full bg-gold px-6 py-3 font-sans text-[12px] font-semibold uppercase tracking-[0.1em] text-ink no-underline"
+              >
+                See membership →
+              </Link>
+            </div>
+          )}
+
+          {hasPaidAccess && (
           <div className="grid grid-cols-[minmax(0,1.55fr)_minmax(300px,1fr)] items-start gap-[22px]">
             {/* Left column */}
             <div className="flex min-w-0 flex-col gap-[22px]">
-              <Link
-                to={continueWatching ? `/courses/${continueWatching.courseId}` : '/courses'}
-                className="relative block overflow-hidden rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] text-inherit no-underline"
-              >
-                <div className="relative aspect-[16/7] overflow-hidden">
-                  <img
-                    src={continueWatching?.thumbnailUrl || continueWatchingImg}
-                    alt=""
-                    className="block h-full w-full object-cover"
-                    style={{ filter: 'brightness(0.72)' }}
-                  />
-                  <div
-                    className="absolute inset-0"
-                    style={{ background: 'linear-gradient(transparent 30%, rgba(18,21,12,0.92))' }}
-                  />
-                  <div className="absolute bottom-5 left-6 right-[100px]">
-                    <div
-                      className="mb-2 font-sans text-[11px] font-semibold uppercase tracking-[0.2em]"
-                      style={{ color: t.accent }}
-                    >
-                      Continue watching
-                    </div>
-                    <div className="mb-1 font-sans text-2xl font-bold uppercase leading-[1.05] text-white">
-                      {continueWatching ? continueWatching.courseTitle : t.course}
-                    </div>
-                    <div className="font-serif text-[15.5px] text-cream/[78%]">
-                      {continueWatching ? continueWatching.episodeTitle : t.episode}
-                    </div>
-                  </div>
-                  <div
-                    className="absolute bottom-[22px] right-6 flex h-[52px] w-[52px] items-center justify-center rounded-full shadow-[0_12px_28px_-8px_rgba(0,0,0,0.6)]"
-                    style={{ background: t.accent }}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#171C10">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3.5 px-6 py-3.5">
-                  <div className="h-[5px] flex-1 overflow-hidden rounded-full bg-cream/10">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ background: t.accent, width: continueWatching ? `${continueWatching.percent}%` : t.pctW }}
-                    />
-                  </div>
-                  <span className="font-sans text-xs font-semibold tracking-[0.08em] text-cream/60">
-                    {continueWatching ? continueWatching.percent : t.pct}% complete
-                  </span>
-                </div>
-              </Link>
-
               <div className="flex flex-wrap items-center gap-[18px] rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-6 py-5">
                 <div className="relative h-[78px] w-[78px] shrink-0 overflow-hidden rounded-xl">
                   <img
@@ -566,28 +709,30 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <Link
-                to="/progress"
-                className="flex items-center gap-3 rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-[22px] py-[18px] text-inherit no-underline"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E89147" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                  <circle cx="12" cy="8" r="6" />
-                  <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
-                </svg>
-                <div className="flex-1">
-                  <div className="font-sans text-[17px] font-bold">{t.points} points</div>
-                  <div className="font-serif text-[12.5px] text-cream/55">
-                    {t.badges} badges earned · view progress
+              {!isAdmin && (
+                <Link
+                  to="/progress"
+                  className="flex items-center gap-3 rounded-cv-lg border border-cream/[0.09] bg-[rgb(30,36,22)] px-[22px] py-[18px] text-inherit no-underline"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E89147" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    <circle cx="12" cy="8" r="6" />
+                    <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+                  </svg>
+                  <div className="flex-1">
+                    <div className="font-sans text-[17px] font-bold">{t.points} points</div>
+                    <div className="font-serif text-[12.5px] text-cream/55">
+                      {t.badges} badges earned · view progress
+                    </div>
                   </div>
-                </div>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(240,238,229,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
-              </Link>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(240,238,229,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </Link>
+              )}
             </div>
           </div>
+          )}
         </main>
-        )}
       </div>
     </div>
   )

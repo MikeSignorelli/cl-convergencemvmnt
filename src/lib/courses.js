@@ -32,6 +32,7 @@ export async function createCourse({
   featured,
   priceCents,
   visibleTiers,
+  listingType,
   thumbnailPath,
   videoUrl,
   slug,
@@ -54,6 +55,7 @@ export async function createCourse({
     featured: !!featured,
     price_cents: priceCents || 0,
     visible_tiers: visibleTiers,
+    listing_type: listingType || 'membership',
     thumbnail_path: thumbnailPath || null,
     video_url: videoUrl || null,
     slug: slug || null,
@@ -87,6 +89,7 @@ export async function updateCourse(id, fields) {
   if ('featured' in fields) patch.featured = !!fields.featured
   if ('priceCents' in fields) patch.price_cents = fields.priceCents || 0
   if ('visibleTiers' in fields) patch.visible_tiers = fields.visibleTiers
+  if ('listingType' in fields) patch.listing_type = fields.listingType || 'membership'
   if ('thumbnailPath' in fields) patch.thumbnail_path = fields.thumbnailPath || null
   if ('slug' in fields) patch.slug = fields.slug || null
   if ('shortDescription' in fields) patch.short_description = fields.shortDescription || null
@@ -146,19 +149,21 @@ export async function fetchCourseLessonsStats(courseId) {
 export async function listCourses() {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, title, description, category, duration_label, featured, price_cents, visible_tiers, thumbnail_path, created_at')
+    .select('id, title, description, category, duration_label, featured, price_cents, visible_tiers, listing_type, thumbnail_path, created_at')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
   if (error) throw error
   return (data || []).map((c) => ({ ...c, thumbnail_url: courseThumbnailUrl(c.thumbnail_path) }))
 }
 
-// The public "Courses & Mentorship" catalog only shows courses an admin has
-// actually priced for standalone purchase (price_cents > 0) — the rest stay
-// membership-only, visible in the member Course Library but not sold here.
+// The public "Courses & Mentorship" catalog only shows courses explicitly
+// listed as standalone (listing_type = 'course', migration 0035) — the
+// rest stay membership-only, visible in the member Course Library but not
+// sold here. Doesn't affect who can actually watch a video either way —
+// that's the membership-or-purchase rule in get_course_video_url.
 export async function listStandaloneCourses() {
   const courses = await listCourses()
-  return courses.filter((c) => c.price_cents > 0)
+  return courses.filter((c) => c.listing_type === 'course')
 }
 
 // Admin-only view (video_url included) — see admin_list_courses() in
@@ -174,7 +179,7 @@ export async function adminListCourses() {
 export async function fetchCourse(id) {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, title, description, category, duration_label, visible_tiers, thumbnail_path, access_mode, status, created_at')
+    .select('id, title, description, category, duration_label, price_cents, visible_tiers, listing_type, thumbnail_path, access_mode, status, created_at')
     .eq('id', id)
     .is('deleted_at', null)
     .maybeSingle()
@@ -192,6 +197,16 @@ export async function fetchCourse(id) {
 // the row it belongs to still exists.
 export async function deleteCourse(id) {
   const { error } = await supabase.from('courses').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+  if (error) throw error
+}
+
+// Bulk version of deleteCourse — one update for the whole selection instead
+// of N round trips. Same soft delete, same "admins can manage courses" RLS
+// policy (ALL command) already gating deleteCourse, so a non-admin caller
+// simply matches zero rows here rather than needing a separate check.
+export async function deleteCourses(ids) {
+  if (!ids || ids.length === 0) return
+  const { error } = await supabase.from('courses').update({ deleted_at: new Date().toISOString() }).in('id', ids)
   if (error) throw error
 }
 
@@ -243,6 +258,7 @@ export async function duplicateCourse(id) {
       featured: false,
       price_cents: source.price_cents,
       visible_tiers: source.visible_tiers,
+      listing_type: source.listing_type,
       thumbnail_path: source.thumbnail_path,
       video_url: source.video_url,
       slug,
