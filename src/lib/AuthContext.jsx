@@ -153,6 +153,22 @@ export function AuthProvider({ children }) {
     }
   }, [profile?.id])
 
+  // Re-fetch purchases on demand — the effect above only runs when
+  // profile.id changes, so a course unlocking right after a successful
+  // checkout (the webhook flips it to 'completed' a moment after the
+  // ?checkout=success redirect lands) needs an explicit way to pick that up
+  // without a full page reload. See CourseDetail.jsx's checkout=success handling.
+  const refreshPurchases = useCallback(async () => {
+    const uid = profile?.id
+    if (!uid) return
+    const { data } = await supabase
+      .from('course_purchases')
+      .select('course_id')
+      .eq('user_id', uid)
+      .eq('status', 'completed')
+    setPurchasedCourseIds([...new Set((data || []).map((r) => r.course_id))])
+  }, [profile?.id])
+
   const isAdmin = profile?.tier === 'admin'
 
   // Stable references (useCallback with no deps): both are read via a
@@ -186,6 +202,7 @@ export function AuthProvider({ children }) {
     isAdmin,
     purchasedCourseIds,
     hasAnyPurchase: purchasedCourseIds.length > 0,
+    refreshPurchases,
     previewTier,
     setPreviewTier,
     authError,

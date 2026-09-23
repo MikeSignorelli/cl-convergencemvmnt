@@ -79,6 +79,7 @@ Deno.serve(async (req) => {
     const visibleTiers = Array.isArray(body.visibleTiers) && body.visibleTiers.length ? body.visibleTiers : ['disciple', 'leader', 'pastor']
     const scheduledAt = body.scheduledAt
     const durationMinutes = Number.isFinite(body.durationMinutes) && body.durationMinutes > 0 ? Math.round(body.durationMinutes) : 60
+    const thumbnailPath = typeof body.thumbnailPath === 'string' && body.thumbnailPath ? body.thumbnailPath : null
     if (!title) return json({ error: 'Title is required' }, 400)
     if (!scheduledAt || Number.isNaN(new Date(scheduledAt).getTime())) return json({ error: 'A valid scheduled time is required' }, 400)
 
@@ -126,11 +127,13 @@ Deno.serve(async (req) => {
         description: description || null,
         visible_tiers: visibleTiers,
         scheduled_at: new Date(scheduledAt).toISOString(),
+        duration_minutes: durationMinutes,
+        thumbnail_path: thumbnailPath,
         join_url: meeting.join_url,
         zoom_meeting_id: String(meeting.id),
         created_by: userData.user.id,
       })
-      .select('id, title, description, visible_tiers, scheduled_at, join_url, zoom_meeting_id, created_at')
+      .select('id, title, description, visible_tiers, scheduled_at, duration_minutes, thumbnail_path, join_url, zoom_meeting_id, created_at')
       .single()
     if (insertError) throw insertError
 

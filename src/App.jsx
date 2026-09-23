@@ -17,6 +17,7 @@ import ForgotPassword from './pages/member/ForgotPassword'
 import ResetPassword  from './pages/member/ResetPassword'
 import CourseLibrary from './pages/member/CourseLibrary'
 import CourseDetail  from './pages/member/CourseDetail'
+import LiveSessionDetail from './pages/member/LiveSessionDetail'
 import Player        from './pages/member/Player'
 import Progress      from './pages/member/Progress'
 import PaymentHistory from './pages/member/PaymentHistory'
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="/courses"        element={<CourseLibrary />} />
         <Route path="/courses/:id"    element={<CourseDetail />} />
         <Route path="/live-sessions"  element={<RequireAuth><UploadLiveSessions /></RequireAuth>} />
+        <Route path="/live-sessions/:id" element={<RequireAuth><LiveSessionDetail /></RequireAuth>} />
         <Route path="/resources"      element={<UploadResources />} />
         <Route path="/player"         element={<Player />} />
         <Route path="/progress"       element={<RequireAuth memberOnly><Progress /></RequireAuth>} />

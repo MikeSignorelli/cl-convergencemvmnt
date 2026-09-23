@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import logo from '../../assets/images/convergence-mvmnt.png'
 import mikePortrait from '../../assets/images/drop-a-portrait-of-mike.webp'
 import UpgradeLock from '../../components/UpgradeLock'
@@ -74,7 +74,9 @@ function isSequentiallyLocked(ep, index, episodes, course, progress, isAdmin) {
 
 export default function CourseDetail() {
   const { id } = useParams()
-  const { profile, isAdmin, purchasedCourseIds } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const checkoutStatus = searchParams.get('checkout')
+  const { profile, isAdmin, purchasedCourseIds, refreshPurchases } = useAuth()
   const [course, setCourse] = useState(null)
   const [episodes, setEpisodes] = useState([])
   const [resources, setResources] = useState([])
@@ -87,6 +89,37 @@ export default function CourseDetail() {
   const [resumeSeconds, setResumeSeconds] = useState(0)
   const [enrolling, setEnrolling] = useState(false)
   const [enrollError, setEnrollError] = useState('')
+  // Snapshotted from the URL once so the banner survives the query param
+  // being cleared right after (see the effect below) — a reload/share of
+  // the URL shouldn't keep re-showing "payment cancelled" forever.
+  const [checkoutBanner] = useState(checkoutStatus)
+
+  // Non-members who cancel a Stripe checkout used to land back here with no
+  // acknowledgment at all — just the normal locked-course view, easy to
+  // read as "nothing happened" rather than "you can still get in this way."
+  // On success, Stripe's redirect can beat the webhook that actually marks
+  // the purchase 'completed' by a second or two, so this also re-polls
+  // purchasedCourseIds a couple of times instead of requiring a manual reload.
+  useEffect(() => {
+    if (!checkoutStatus) return
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('checkout')
+        return next
+      },
+      { replace: true }
+    )
+    if (checkoutStatus === 'success') {
+      refreshPurchases()
+      const t1 = setTimeout(refreshPurchases, 2500)
+      const t2 = setTimeout(refreshPurchases, 6000)
+      return () => {
+        clearTimeout(t1)
+        clearTimeout(t2)
+      }
+    }
+  }, [checkoutStatus])
   const playerRef = useRef(null)
   const trackerRef = useRef(null)
 
@@ -316,6 +349,20 @@ export default function CourseDetail() {
 
       {!loading && !error && course && (
         <>
+          {checkoutBanner === 'cancelled' && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gold/25 bg-gold/[0.08] px-6 py-3.5 lg:px-10">
+              <span className="font-sans text-[13px] font-semibold text-[#E9CF9C]">
+                Payment cancelled — you weren&rsquo;t charged. You can still buy this course or join the membership below.
+              </span>
+            </div>
+          )}
+          {checkoutBanner === 'success' && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#9BC08A]/30 bg-[#9BC08A]/[0.08] px-6 py-3.5 lg:px-10">
+              <span className="font-sans text-[13px] font-semibold text-[#9BC08A]">
+                Payment received — unlocking this course now. If it&rsquo;s still showing as locked in a few seconds, refresh the page.
+              </span>
+            </div>
+          )}
           {/* Hero */}
           <section className="relative flex min-h-[300px] items-end overflow-hidden border-b border-cream/[0.07]">
             {heroBg ? (
