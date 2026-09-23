@@ -67,7 +67,7 @@ function RhythmCard({ rhythm, selected, onSelect }) {
 }
 
 export default function Onboarding() {
-  const { step, tier, rhythm, setRhythm, picked, togglePicked, next, back } =
+  const { step, tier, rhythm, setRhythm, picked, togglePicked, mode, courseId, next, back } =
     useOnboardingSession()
 
   return (
@@ -146,9 +146,11 @@ export default function Onboarding() {
           </div>
         )}
 
-        {step === LOGIN_STEP && <CreateLoginStep tier={tier} rhythm={rhythm} picked={picked} onBack={back} />}
+        {step === LOGIN_STEP && (
+          <CreateLoginStep tier={tier} rhythm={rhythm} picked={picked} mode={mode} courseId={courseId} onBack={back} />
+        )}
 
-        {step === PAYMENT_STEP && <PaymentStep onNext={next} />}
+        {step === PAYMENT_STEP && <PaymentStep mode={mode} courseId={courseId} onNext={next} />}
 
         {step === PROFILE_STEP && <ProfileStep onBack={back} onNext={next} />}
 
@@ -170,10 +172,12 @@ export default function Onboarding() {
               </svg>
             </div>
             <h1 className="mb-3 text-[34px] font-bold uppercase leading-[1.02] text-white">
-              You&rsquo;re in, Sarah
+              {mode === 'course' ? "You're in" : "You're in, Sarah"}
             </h1>
             <p className="mx-auto mb-[30px] max-w-[420px] font-serif text-[16.5px] leading-[1.6] text-cream/[72%]">
-              Keep your streak alive — your daily reset takes 3 minutes, wherever you are.
+              {mode === 'course'
+                ? "Your course is ready to watch. You can upgrade to membership anytime from your dashboard to unlock everything else."
+                : 'Keep your streak alive — your daily reset takes 3 minutes, wherever you are.'}
             </p>
           </div>
         )}

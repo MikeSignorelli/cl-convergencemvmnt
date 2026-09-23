@@ -35,9 +35,15 @@ export async function fetchCourseVideoUrl(courseId) {
 // "Courses & Mentorship" catalog (/programs), where someone not ready to
 // subscribe can still buy access to just one course. Every course is
 // already free with an active membership; this is the alternate path.
-export async function startCoursePurchase(courseId) {
+//
+// returnTo mirrors startMembershipCheckout's: omitted, Stripe sends the
+// browser back to the course's own page as before; the onboarding payment
+// step (course-purchase mode, reached from a logged-out /programs visitor)
+// passes '/onboarding' so it resumes the wizard instead. Allowlisted
+// server-side, same as the membership path.
+export async function startCoursePurchase(courseId, returnTo) {
   const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-    body: { type: 'course', courseId },
+    body: { type: 'course', courseId, returnTo },
   })
   if (error) throw await unwrapFunctionError(error)
   if (!data?.url) throw new Error('Checkout session did not return a URL.')

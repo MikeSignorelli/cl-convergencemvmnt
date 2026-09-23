@@ -13,6 +13,7 @@ export default function MemberTopbar({
   streak = 12,
   actionLabel,
   actionOnClick,
+  actionDisabled = false,
 }) {
   const { profile } = useAuth()
   const initials = initialsOf(profile?.display_name || profile?.username) || '—'
@@ -49,7 +50,8 @@ export default function MemberTopbar({
           <button
             type="button"
             onClick={actionOnClick}
-            className="flex cursor-pointer items-center gap-2 rounded-full border-none bg-gold px-5 py-2.5 font-sans text-[12px] font-semibold uppercase tracking-[0.1em] text-ink"
+            disabled={actionDisabled}
+            className="flex cursor-pointer items-center gap-2 rounded-full border-none bg-gold px-5 py-2.5 font-sans text-[12px] font-semibold uppercase tracking-[0.1em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 5v14M5 12h14" />

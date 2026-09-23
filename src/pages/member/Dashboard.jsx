@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import MemberSidebar from '../../components/MemberSidebar'
 import MemberTopbar from '../../components/MemberTopbar'
 import CourseCard from '../../components/CourseCard'
@@ -10,7 +10,7 @@ import { listCourses } from '../../lib/courses'
 import { fetchEpisodeCounts } from '../../lib/courseLessons'
 import { fetchMyProgress, fetchContinueWatchingCourses } from '../../lib/progress'
 import { getCourseAccess } from '../../lib/courseAccess'
-import { startCoursePurchase } from '../../lib/billing'
+import { startCoursePurchase, startMembershipCheckout } from '../../lib/billing'
 import dailyResetImg from '../../assets/app-images/dashboard-daily-reset.jpg'
 
 const TIERS = {
@@ -195,10 +195,42 @@ function YourCoursesSection({
 }
 
 export default function Dashboard() {
-  const { profile, isAdmin, previewTier, setPreviewTier, hasAnyPurchase, purchasedCourseIds } = useAuth()
+  const { profile, isAdmin, previewTier, setPreviewTier, hasAnyPurchase, purchasedCourseIds, refreshProfile } = useAuth()
   const tier = isAdmin ? previewTier || 'disciple' : profile?.tier || 'disciple'
   const readOnly = isAdmin
   const [dailyDone, setDailyDone] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const checkoutStatus = searchParams.get('checkout')
+  // Snapshotted once so the banner survives the query param being cleared
+  // right after (see the effect below).
+  const [checkoutBanner] = useState(checkoutStatus)
+
+  // Membership checkout lands back here (its cancel_url/success_url both
+  // default to /dashboard) — previously with no acknowledgment at all, so a
+  // cancelled non-member just saw the same locked dashboard with no sense
+  // anything happened. On success, re-check the profile a couple of times
+  // since the webhook that flips subscription_status to 'active' can land a
+  // second or two after Stripe's own redirect does.
+  useEffect(() => {
+    if (!checkoutStatus) return
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('checkout')
+        return next
+      },
+      { replace: true }
+    )
+    if (checkoutStatus === 'success') {
+      refreshProfile()
+      const t1 = setTimeout(refreshProfile, 2500)
+      const t2 = setTimeout(refreshProfile, 6000)
+      return () => {
+        clearTimeout(t1)
+        clearTimeout(t2)
+      }
+    }
+  }, [checkoutStatus])
   const t = TIERS[tier]
   const firstName = (profile?.display_name || profile?.username || t.first).trim().split(/\s+/)[0]
   const freedomDay = t.streak
@@ -241,6 +273,7 @@ export default function Dashboard() {
   // error also blanked the error message that was keyed off it, so it never
   // actually rendered.
   const [enrollStatus, setEnrollStatus] = useState({ id: null, pending: false, error: '' })
+  const [joinMembership, setJoinMembership] = useState({ pending: false, error: '' })
 
   useEffect(() => {
     let cancelled = false
@@ -332,17 +365,40 @@ export default function Dashboard() {
     })
   }
 
+  // Upgrade path for someone who bought a course outright but never
+  // subscribed — they already have an account, so this goes straight to
+  // Stripe, no onboarding wizard involved. A completed course purchase is
+  // untouched by this: subscription checkouts only ever write to profiles,
+  // course_purchases is a separate table (see stripe-webhook).
+  function handleJoinMembership() {
+    setJoinMembership({ pending: true, error: '' })
+    startMembershipCheckout('/dashboard').catch((err) => {
+      setJoinMembership({ pending: false, error: err.message || 'Could not start checkout. Please try again.' })
+    })
+  }
+
   // Real session when one exists; otherwise the demo teaser stays, but the
   // button is disabled — it only ever adds a real, scheduled event.
   const liveTitle = nextSession ? nextSession.title : t.liveTitle
   const liveWhen = nextSession ? formatSessionDate(nextSession.scheduled_at) : t.liveDate
   const canAddToCalendar = !readOnly && !!nextSession
 
+  // Persistent header CTA for anyone who isn't an active member yet —
+  // whether they've bought a standalone course or not — so it's reachable
+  // without scrolling. Never shown to admins (they don't hold a
+  // subscription) or to an already-active member.
+  const showJoinMembershipCTA = !isAdmin && profile?.subscription_status !== 'active'
+
   return (
     <div className="flex min-h-screen bg-ink font-sans text-cream">
       <MemberSidebar active="/dashboard" />
       <div className="flex flex-1 flex-col min-w-0">
-        <MemberTopbar streak={t.streak} />
+        <MemberTopbar
+          streak={t.streak}
+          actionLabel={showJoinMembershipCTA ? (joinMembership.pending ? 'Redirecting…' : 'Join the Movement') : undefined}
+          actionOnClick={showJoinMembershipCTA ? handleJoinMembership : undefined}
+          actionDisabled={joinMembership.pending}
+        />
 
         <main className="mx-auto w-full max-w-[1180px] flex-1 px-8 pb-16 pt-9">
           <div className="mb-[30px] flex flex-wrap items-center justify-between gap-5">
@@ -400,6 +456,21 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          {checkoutBanner === 'cancelled' && !hasPaidAccess && (
+            <div className="mb-[22px] rounded-cv-lg border border-gold/25 bg-gold/[0.08] px-5 py-3.5">
+              <span className="font-sans text-[13px] font-semibold text-[#E9CF9C]">
+                Payment cancelled — you weren&rsquo;t charged. Pick a course below to buy it individually, or join the membership to unlock everything for your role.
+              </span>
+            </div>
+          )}
+          {checkoutBanner === 'success' && (
+            <div className="mb-[22px] rounded-cv-lg border border-[#9BC08A]/30 bg-[#9BC08A]/[0.08] px-5 py-3.5">
+              <span className="font-sans text-[13px] font-semibold text-[#9BC08A]">
+                Payment received — activating your membership now. If it&rsquo;s not reflected in a few seconds, refresh the page.
+              </span>
+            </div>
+          )}
 
           {/* Recovery nudge: paid, but profile step never finished (see FinishSetup / task A8). */}
           {hasPaidAccess && !isAdmin && !profile?.display_name && (
@@ -468,6 +539,33 @@ export default function Dashboard() {
               >
                 See membership →
               </Link>
+            </div>
+          )}
+
+          {/* Single-course owner (already has hasPaidAccess via hasAnyPurchase,
+              so the banner above never shows them) — upgrade path to full
+              membership. */}
+          {hasAnyPurchase && !isAdmin && profile?.subscription_status !== 'active' && (
+            <div className="mb-[22px] flex flex-wrap items-center justify-between gap-4 rounded-cv-lg border border-gold/30 bg-gold/[0.08] px-6 py-5">
+              <div>
+                <div className="mb-1 font-sans text-[15px] font-bold uppercase tracking-[0.05em] text-white">
+                  Want everything, not just what you&rsquo;ve bought?
+                </div>
+                <div className="font-serif text-[13.5px] text-cream/65">
+                  Join membership for $49/mo — every course, live sessions, and the full community. Your purchases stay yours.
+                </div>
+                {joinMembership.error && (
+                  <div className="mt-2 font-serif text-[13px] text-[#D8888A]">{joinMembership.error}</div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleJoinMembership}
+                disabled={joinMembership.pending}
+                className="shrink-0 cursor-pointer rounded-full border-none bg-gold px-6 py-3 font-sans text-[12px] font-semibold uppercase tracking-[0.1em] text-ink disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {joinMembership.pending ? 'Redirecting…' : 'Join membership →'}
+              </button>
             </div>
           )}
 

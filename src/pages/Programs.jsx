@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import PublicLayout from '../components/PublicLayout'
 import { useAuth } from '../lib/AuthContext'
 import { listCourses } from '../lib/courses'
@@ -30,7 +30,7 @@ function PlaceholderArt() {
 // progress + a Continue/Start link into the course; locked shows the price +
 // Enroll now, same as a logged-out visitor sees, plus a role badge when the
 // course is assigned to specific role(s) (see lib/courseAccess.js).
-function ProgramCard({ course, access, episodeCount, progressPercent = 0, onEnroll, enrolling, enrollError, promptForAccountId }) {
+function ProgramCard({ course, access, episodeCount, progressPercent = 0, onEnroll, enrolling, enrollError }) {
   const { unlocked, showProgress, reason } = access
   const completed = showProgress && progressPercent >= 100
   const openToAllRoles = (course.visible_tiers || []).length >= 3
@@ -40,7 +40,6 @@ function ProgramCard({ course, access, episodeCount, progressPercent = 0, onEnro
       ? `${roleBadgeLabel(course.visible_tiers)} only`
       : roleBadgeLabel(course.visible_tiers)
   const canEnroll = !unlocked && course.price_cents > 0
-  const showPrompt = promptForAccountId === course.id
 
   return (
     <div className="flex flex-col overflow-hidden rounded-[14px] border border-gold/[0.14] bg-card transition-transform hover:-translate-y-1">
@@ -111,11 +110,6 @@ function ProgramCard({ course, access, episodeCount, progressPercent = 0, onEnro
             </>
           )}
         </div>
-        {showPrompt && (
-          <p className="mt-3 font-serif text-[13px] text-[#D8888A]">
-            Create a free account or log in first, then come back to enroll.
-          </p>
-        )}
         {enrollError && (
           <p className="mt-3 font-serif text-[13px] text-[#D8888A]">{enrollError}</p>
         )}
@@ -135,6 +129,7 @@ function ProgramCard({ course, access, episodeCount, progressPercent = 0, onEnro
 // part of the marketing site, reachable without an account, matching
 // demo.convergencemvmnt.com/programs.
 export default function Programs() {
+  const navigate = useNavigate()
   const { session, profile, isAdmin, purchasedCourseIds } = useAuth()
   const [courses, setCourses] = useState([])
   const [episodeCounts, setEpisodeCounts] = useState({})
@@ -148,7 +143,6 @@ export default function Programs() {
   // sync as two states meant clearing one on error blanked the other's
   // rendered message before it ever showed.
   const [enrollStatus, setEnrollStatus] = useState({ id: null, pending: false, error: '' })
-  const [promptForAccountId, setPromptForAccountId] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -220,7 +214,12 @@ export default function Programs() {
 
   function handleEnroll(courseId) {
     if (!session) {
-      setPromptForAccountId(courseId)
+      // Route through the same account-creation/resume-robust wizard
+      // membership signup uses, in single-course mode for this course —
+      // rather than the old inline "create an account" message with no
+      // path forward. A logged-in visitor keeps the direct-to-Stripe
+      // shortcut below untouched.
+      navigate(`/onboarding?course=${courseId}`)
       return
     }
     setEnrollStatus({ id: courseId, pending: true, error: '' })
@@ -240,7 +239,6 @@ export default function Programs() {
         onEnroll={handleEnroll}
         enrolling={enrollStatus.id === course.id && enrollStatus.pending}
         enrollError={enrollStatus.id === course.id ? enrollStatus.error : ''}
-        promptForAccountId={promptForAccountId}
       />
     )
   }
@@ -305,7 +303,6 @@ export default function Programs() {
                     onEnroll={handleEnroll}
                     enrolling={enrollStatus.id === course.id && enrollStatus.pending}
                     enrollError={enrollStatus.id === course.id ? enrollStatus.error : ''}
-                    promptForAccountId={promptForAccountId}
                   />
                 ))}
               </div>

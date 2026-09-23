@@ -154,6 +154,12 @@ Deno.serve(async (req) => {
         })
       }
 
+      // Same allowlist discipline as the membership branch's returnTo above —
+      // only used by the onboarding payment step (single-course purchase
+      // started from a logged-out /programs visitor), so it can resume the
+      // wizard instead of landing back on the course page it started from.
+      const courseReturnPath = body.returnTo === '/onboarding' ? '/onboarding' : `/courses/${courseId}`
+
       // Charged directly off the course's own price_cents (set by an admin
       // in the course editor) rather than requiring a Stripe Price object to
       // be pre-created per course — the same "just set an amount and charge
@@ -172,8 +178,8 @@ Deno.serve(async (req) => {
           },
           quantity: 1,
         }],
-        success_url: `${siteUrl}/courses/${courseId}?checkout=success`,
-        cancel_url: `${siteUrl}/courses/${courseId}?checkout=cancelled`,
+        success_url: `${siteUrl}${courseReturnPath}?checkout=success`,
+        cancel_url: `${siteUrl}${courseReturnPath}?checkout=cancelled`,
         metadata: { supabase_user_id: user.id, type: 'course', course_id: courseId },
       })
 

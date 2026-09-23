@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import {
   EMAIL_PATTERN,
@@ -51,7 +52,7 @@ function GoogleIcon() {
   )
 }
 
-export default function CreateLoginStep({ tier, rhythm, picked, onBack }) {
+export default function CreateLoginStep({ tier, rhythm, picked, mode, courseId, onBack }) {
   const [view, setView] = useState('form') // 'form' | 'checkEmail'
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
@@ -109,7 +110,7 @@ export default function CreateLoginStep({ tier, rhythm, picked, onBack }) {
       await startSignup({
         username: normalizedUsername,
         email: normalizedEmail,
-        answers: { tier, rhythm, picked },
+        answers: { tier, rhythm, picked, mode, courseId },
       })
 
       setSentTo(normalizedEmail)
@@ -139,7 +140,7 @@ export default function CreateLoginStep({ tier, rhythm, picked, onBack }) {
         return
       }
 
-      stashGoogleSignup({ username: normalizedUsername, answers: { tier, rhythm, picked } })
+      stashGoogleSignup({ username: normalizedUsername, answers: { tier, rhythm, picked, mode, courseId } })
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -218,6 +219,12 @@ export default function CreateLoginStep({ tier, rhythm, picked, onBack }) {
       </h1>
       <p className="mb-[30px] font-serif text-[16.5px] leading-[1.6] text-cream/[72%]">
         Sign up with Google, or we&rsquo;ll email you a link to set your password.
+        {' '}
+        Already have an account?{' '}
+        <Link to="/login?next=/onboarding" className="text-gold">
+          Log in
+        </Link>
+        .
       </p>
 
       <div className="mb-5">

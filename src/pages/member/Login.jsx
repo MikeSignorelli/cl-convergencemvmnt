@@ -1,8 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../lib/AuthContext'
 import logo from '../../assets/images/convergence-mvmnt.png'
+
+// The value ends up in a redirect URL (Google's own redirectTo, and the
+// client-side navigate target), so it's allowlisted the same way
+// create-checkout-session's returnTo is — an unchecked query param feeding a
+// redirect is a classic open-redirect shape, even though the practical risk
+// here is low (fixed origin, no protocol-relative bypass).
+const ALLOWED_NEXT = ['/onboarding', '/dashboard']
 
 function Shell({ children }) {
   return (
@@ -42,6 +49,9 @@ function GoogleIcon() {
 
 export default function Login() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const nextParam = searchParams.get('next')
+  const next = ALLOWED_NEXT.includes(nextParam) ? nextParam : '/dashboard'
   const { authError, clearAuthError } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -62,7 +72,7 @@ export default function Login() {
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
       if (signInError) throw signInError
-      navigate('/dashboard', { replace: true })
+      navigate(next, { replace: true })
     } catch (err) {
       setError('Incorrect email or password.')
       setSubmitting(false)
@@ -75,7 +85,7 @@ export default function Login() {
     try {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: `${window.location.origin}/dashboard` },
+        options: { redirectTo: `${window.location.origin}${next}` },
       })
       if (oauthError) throw oauthError
     } catch (err) {
