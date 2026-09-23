@@ -22,17 +22,18 @@ export async function fetchStripeSettings() {
 // publishable key never has to re-paste the secret key, and there is no
 // way to read the current one back to confirm it first anyway. Passing a
 // non-empty secretKey replaces it outright.
+//
+// Goes through a security-definer RPC rather than an upsert() straight to
+// the table: INSERT ... ON CONFLICT needs SELECT on every column it
+// touches (including secret_key via excluded.secret_key) to resolve the
+// conflict, and secret_key can never carry a SELECT grant without
+// defeating the entire point of hiding it from the client. Running as the
+// function owner sidesteps that -- see migration
+// save_settings_via_security_definer_rpc.
 export async function saveStripeSettings({ publishableKey, secretKey }) {
-  const { data: userData } = await supabase.auth.getUser()
-  const patch = {
-    provider: 'stripe',
-    publishable_key: publishableKey?.trim() || null,
-    updated_by: userData.user?.id ?? null,
-    updated_at: new Date().toISOString(),
-  }
-  if (secretKey && secretKey.trim()) {
-    patch.secret_key = secretKey.trim()
-  }
-  const { error } = await supabase.from('payment_settings').upsert(patch, { onConflict: 'provider' })
+  const { error } = await supabase.rpc('save_stripe_settings', {
+    p_publishable_key: publishableKey?.trim() || null,
+    p_secret_key: secretKey && secretKey.trim() ? secretKey.trim() : null,
+  })
   if (error) throw error
 }

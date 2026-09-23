@@ -117,6 +117,39 @@ Deno.serve(async (req) => {
                 typeof session.subscription === 'string' ? session.subscription : session.subscription?.id,
             })
             .eq('id', userId)
+
+          // Record the membership's first charge right here instead of only
+          // relying on a separate invoice.paid event -- some Stripe webhook
+          // endpoints aren't subscribed to that event type, which otherwise
+          // leaves Payment History empty for the very first charge even
+          // though the subscription itself activated correctly above.
+          // Upserted on stripe_invoice_id (recordInvoiceTransaction's own
+          // conflict target below), so a later invoice.paid event -- if one
+          // does arrive -- safely fills in the same row rather than
+          // duplicating it.
+          const invoiceId = typeof session.invoice === 'string' ? session.invoice : session.invoice?.id
+          if (invoiceId) {
+            let receiptUrl: string | null = null
+            try {
+              const invoice = await stripe.invoices.retrieve(invoiceId)
+              receiptUrl = invoice.hosted_invoice_url ?? null
+            } catch (invoiceErr) {
+              console.error('stripe-webhook: could not retrieve invoice for billing_transactions', invoiceErr)
+            }
+            await adminClient.from('billing_transactions').upsert(
+              {
+                user_id: userId,
+                stripe_invoice_id: invoiceId,
+                amount_cents: session.amount_total ?? 0,
+                currency: session.currency ?? 'usd',
+                status: 'paid',
+                description: 'Monthly membership',
+                receipt_url: receiptUrl,
+                occurred_at: new Date().toISOString(),
+              },
+              { onConflict: 'stripe_invoice_id' }
+            )
+          }
         } else if (session.mode === 'payment') {
           const courseId = session.metadata?.course_id
           if (courseId) {
