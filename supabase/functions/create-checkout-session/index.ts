@@ -112,8 +112,23 @@ Deno.serve(async (req) => {
       const allowedReturnPaths = ['/dashboard', '/onboarding']
       const returnPath = allowedReturnPaths.includes(body.returnTo) ? body.returnTo : '/dashboard'
 
+      // 'payment', not 'subscription': the configured STRIPE_MEMBERSHIP_PRICE_ID
+      // is a one-time price, and Stripe rejects a one-time price in
+      // subscription mode ("You must provide at least one recurring price in
+      // `subscription` mode when using prices").
+      //
+      // CONSEQUENCE, and it is not small: members are charged ONCE, not
+      // monthly. There is no renewal and nothing to cancel, so the "$49/month"
+      // and "Cancel anytime. No contracts." copy on the onboarding payment
+      // step and PaymentWall is now inaccurate, and subscription_status
+      // 'active' means "paid once", permanently.
+      //
+      // To restore a real subscription: create a RECURRING monthly price in
+      // Stripe, put its id in STRIPE_MEMBERSHIP_PRICE_ID, and change this
+      // back to 'subscription'. Nothing else here depends on the mode except
+      // the confirm-checkout / stripe-webhook branches that mirror it.
       const session = await stripe.checkout.sessions.create({
-        mode: 'subscription',
+        mode: 'payment',
         customer: customerId,
         client_reference_id: user.id, // correlates the webhook back to this member — the "membership_id" link
         line_items: [{ price: membershipPriceId, quantity: 1 }],
