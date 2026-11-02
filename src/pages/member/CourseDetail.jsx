@@ -9,7 +9,7 @@ import { listCourseLessons, fetchLessonVideoUrl, fetchLessonProgress, fetchCours
 import { listCourseResources, getResourceDownloadUrl } from '../../lib/resources'
 import { createEpisodeTracker, getResumeDecision, isProgressTrackingEnabled, markEpisodeComplete } from '../../lib/progress'
 import { getCourseAccess, roleBadgeLabel } from '../../lib/courseAccess'
-import { startCoursePurchase, formatPrice } from '../../lib/billing'
+import { startCoursePurchase, confirmCheckout, formatPrice } from '../../lib/billing'
 import { useAuth } from '../../lib/AuthContext'
 
 // The platform is Mike's, so the instructor card is the same on every course.
@@ -102,15 +102,26 @@ export default function CourseDetail() {
   // purchasedCourseIds a couple of times instead of requiring a manual reload.
   useEffect(() => {
     if (!checkoutStatus) return
+    // Read before the query param is stripped below.
+    const sessionId = searchParams.get('session_id')
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
         next.delete('checkout')
+        next.delete('session_id')
         return next
       },
       { replace: true }
     )
     if (checkoutStatus === 'success') {
+      // Marks the purchase completed directly when no Stripe webhook endpoint
+      // is configured; silent where one is, since it will have done the same.
+      confirmCheckout(sessionId)
+        .then((result) => {
+          if (result?.confirmed) refreshPurchases()
+        })
+        .catch((err) => console.error('confirm-checkout failed; relying on webhook', err))
+
       refreshPurchases()
       const t1 = setTimeout(refreshPurchases, 2500)
       const t2 = setTimeout(refreshPurchases, 6000)

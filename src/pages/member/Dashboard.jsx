@@ -10,7 +10,7 @@ import { listCourses } from '../../lib/courses'
 import { fetchEpisodeCounts } from '../../lib/courseLessons'
 import { fetchMyProgress, fetchContinueWatchingCourses } from '../../lib/progress'
 import { getCourseAccess } from '../../lib/courseAccess'
-import { startCoursePurchase, startMembershipCheckout } from '../../lib/billing'
+import { startCoursePurchase, startMembershipCheckout, confirmCheckout } from '../../lib/billing'
 import dailyResetImg from '../../assets/app-images/dashboard-daily-reset.jpg'
 
 const TIERS = {
@@ -213,15 +213,28 @@ export default function Dashboard() {
   // second or two after Stripe's own redirect does.
   useEffect(() => {
     if (!checkoutStatus) return
+    // Read before the query param is stripped below.
+    const sessionId = searchParams.get('session_id')
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
         next.delete('checkout')
+        next.delete('session_id')
         return next
       },
       { replace: true }
     )
     if (checkoutStatus === 'success') {
+      // Activates the membership directly when no Stripe webhook endpoint is
+      // configured — otherwise nothing ever flips subscription_status and the
+      // re-checks below just find 'pending' three times. Silent on failure:
+      // where a webhook does exist it has already done this.
+      confirmCheckout(sessionId)
+        .then((result) => {
+          if (result?.confirmed) refreshProfile()
+        })
+        .catch((err) => console.error('confirm-checkout failed; relying on webhook', err))
+
       refreshProfile()
       const t1 = setTimeout(refreshProfile, 2500)
       const t2 = setTimeout(refreshProfile, 6000)

@@ -50,6 +50,26 @@ export async function startCoursePurchase(courseId, returnTo) {
   window.location.href = data.url
 }
 
+// Asks the server to verify a just-completed Checkout Session with Stripe and
+// apply the activation the stripe-webhook would normally have done. Only
+// needed while no webhook endpoint is configured for the Stripe account —
+// see supabase/functions/confirm-checkout/index.ts for what it does and does
+// not cover.
+//
+// Deliberately forgiving: this runs alongside the existing poll on the
+// payment step, so if it fails (no session id, a webhook got there first,
+// Stripe unreachable) the poll still resolves the purchase the moment the
+// database reflects it. Callers treat a rejection as "not confirmed yet"
+// rather than an error worth showing.
+export async function confirmCheckout(sessionId) {
+  if (!sessionId) return { confirmed: false }
+  const { data, error } = await supabase.functions.invoke('confirm-checkout', {
+    body: { sessionId },
+  })
+  if (error) throw await unwrapFunctionError(error)
+  return data ?? { confirmed: false }
+}
+
 export function formatPrice(cents) {
   if (!cents) return 'Free'
   return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`

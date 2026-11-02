@@ -117,7 +117,13 @@ Deno.serve(async (req) => {
         customer: customerId,
         client_reference_id: user.id, // correlates the webhook back to this member — the "membership_id" link
         line_items: [{ price: membershipPriceId, quantity: 1 }],
-        success_url: `${siteUrl}${returnPath}?checkout=success`,
+        // {CHECKOUT_SESSION_ID} is substituted by Stripe on redirect. The
+        // client hands it to confirm-checkout, which activates the membership
+        // directly when no webhook endpoint is configured for this account
+        // (see supabase/functions/confirm-checkout/index.ts). Harmless when a
+        // webhook does exist — whichever lands first wins, and both write the
+        // same rows idempotently.
+        success_url: `${siteUrl}${returnPath}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${siteUrl}${returnPath}?checkout=cancelled`,
         metadata: { supabase_user_id: user.id, type: 'membership' },
       })
@@ -178,7 +184,7 @@ Deno.serve(async (req) => {
           },
           quantity: 1,
         }],
-        success_url: `${siteUrl}${courseReturnPath}?checkout=success`,
+        success_url: `${siteUrl}${courseReturnPath}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${siteUrl}${courseReturnPath}?checkout=cancelled`,
         metadata: { supabase_user_id: user.id, type: 'course', course_id: courseId },
       })

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../lib/AuthContext'
-import { startMembershipCheckout, startCoursePurchase, formatPrice } from '../../lib/billing'
+import { startMembershipCheckout, startCoursePurchase, confirmCheckout, formatPrice } from '../../lib/billing'
 import { fetchCourse } from '../../lib/courses'
 import { getCourseAccess } from '../../lib/courseAccess'
 
@@ -82,9 +82,27 @@ export default function PaymentStep({ mode, courseId, onNext }) {
   // land back here.
   useEffect(() => {
     if (checkoutParam !== 'success') return
+    // Read before setSearchParams clears the query string below.
+    const sessionId = searchParams.get('session_id')
     setSearchParams({}, { replace: true })
     setConfirming(true)
     setConfirmTimedOut(false)
+
+    // Where no Stripe webhook endpoint is configured, nothing else will ever
+    // flip subscription_status / course_purchases.status, and the poll below
+    // would simply time out. Asking the server to verify the session with
+    // Stripe directly fills that gap. Fire-and-forget: the poll is still what
+    // actually resolves the UI, so a failure here is silent — if a webhook
+    // does exist it will have done the same writes anyway.
+    confirmCheckout(sessionId)
+      .then((result) => {
+        if (!result?.confirmed) return
+        if (isCourseMode) refreshPurchases()
+        else refreshProfile()
+      })
+      .catch((err) => {
+        console.error('confirm-checkout failed; falling back to polling', err)
+      })
 
     const interval = setInterval(() => {
       if (isCourseMode) refreshPurchases()

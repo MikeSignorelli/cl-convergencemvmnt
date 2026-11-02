@@ -131,3 +131,49 @@ Server-to-Server OAuth API on the admin's behalf.
   `live_sessions` row.
 - **NOT LIVE-TESTABLE** until real Zoom Server-to-Server OAuth credentials
   are pasted into Settings → Live sessions.
+
+### confirm-checkout
+
+A stand-in for `stripe-webhook`, for Stripe accounts where no webhook
+endpoint has been created. **Not a replacement — a bridge.**
+
+`stripe-webhook` is the correct mechanism: Stripe pushes every billing event
+to it whether or not anyone has a browser open. But it needs
+`STRIPE_WEBHOOK_SECRET`, which only exists once someone creates an endpoint
+in the Stripe Dashboard. Until then nothing is listening, so a member can pay
+and never be activated — `subscription_status` stays `pending` and they're
+locked out of what they just bought.
+
+`confirm-checkout` inverts the direction: instead of waiting to be told, the
+client asks the server to verify the Checkout Session with Stripe the moment
+the member lands back on the site. Stripe substitutes the session id into
+`success_url` via `{CHECKOUT_SESSION_ID}` (see `create-checkout-session`), and
+this function retrieves that session and applies the same writes
+`checkout.session.completed` would have.
+
+- **Deploy:** `supabase functions deploy confirm-checkout`
+- **Secrets:** none of its own. Reuses the Stripe key from
+  `payment_settings` (Settings → Payments), falling back to
+  `STRIPE_SECRET_KEY`, exactly as `create-checkout-session` does.
+- **Auth:** `verify_jwt = true` (the default). The session is matched against
+  the caller's own id via `client_reference_id` before anything is written —
+  without that, knowing another member's session id would be enough to
+  activate your own membership off their payment. Stripe must also report the
+  session as paid.
+- **Idempotent:** `billing_transactions` is upserted on `stripe_invoice_id`,
+  the same conflict target the webhook uses, so configuring a webhook later
+  fills in the same row rather than duplicating the charge. Safe to leave
+  deployed alongside a working webhook — whichever arrives first wins.
+
+**What it does not cover.** It only runs when a member returns to the site
+straight after paying. Everything asynchronous is invisible to it:
+
+- monthly renewals (no browser involved)
+- cancellations made from Stripe's billing portal
+- failed or declined recurring charges
+- someone who pays then closes the tab before being redirected back
+
+Those all still require the webhook. Once `STRIPE_WEBHOOK_SECRET` is set and
+an endpoint exists, this function can be deleted along with the
+`confirmCheckout()` calls in `PaymentStep.jsx`, `Dashboard.jsx` and
+`CourseDetail.jsx`.
