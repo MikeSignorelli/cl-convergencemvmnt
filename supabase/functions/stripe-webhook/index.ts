@@ -150,50 +150,6 @@ Deno.serve(async (req) => {
               { onConflict: 'stripe_invoice_id' }
             )
           }
-        } else if (session.mode === 'payment' && session.metadata?.type === 'membership') {
-          // The membership is currently sold as a one-time charge rather than
-          // a subscription, because STRIPE_MEMBERSHIP_PRICE_ID is a one-time
-          // price (see create-checkout-session). It therefore arrives in
-          // 'payment' mode and is told apart from a course purchase by
-          // metadata.type. Checked before the course branch below, which
-          // would otherwise swallow it and find no course_id.
-          const paymentIntentId =
-            typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id
-
-          await adminClient
-            .from('profiles')
-            .update({
-              subscription_status: 'active',
-              stripe_customer_id: typeof session.customer === 'string' ? session.customer : session.customer?.id,
-            })
-            .eq('id', userId)
-
-          // No invoice in payment mode — the PaymentIntent id stands in as the
-          // unique key, matching what confirm-checkout writes so the two stay
-          // idempotent against each other.
-          if (paymentIntentId) {
-            let receiptUrl: string | null = null
-            try {
-              const intent = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ['latest_charge'] })
-              const charge = intent.latest_charge
-              if (charge && typeof charge !== 'string') receiptUrl = charge.receipt_url ?? null
-            } catch (intentErr) {
-              console.error('stripe-webhook: could not retrieve payment intent', intentErr)
-            }
-            await adminClient.from('billing_transactions').upsert(
-              {
-                user_id: userId,
-                stripe_invoice_id: paymentIntentId,
-                amount_cents: session.amount_total ?? 0,
-                currency: session.currency ?? 'usd',
-                status: 'paid',
-                description: 'Membership',
-                receipt_url: receiptUrl,
-                occurred_at: new Date().toISOString(),
-              },
-              { onConflict: 'stripe_invoice_id' }
-            )
-          }
         } else if (session.mode === 'payment') {
           const courseId = session.metadata?.course_id
           if (courseId) {
